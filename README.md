@@ -84,6 +84,6 @@ Any kind of contribution is highly welcome as we are propelled by the open-sourc
 - Improve vocoder part of the network.
     - Possible Solutions:
         - WORLD vocoder
-        - [WaveRNN](https://128.84.21.199/pdf/1802.08435.pdf)
+        - [WaveRNN](https://arxiv.org/abs/1802.08435)
         - [Faster WaveNet](https://arxiv.org/abs/1611.09482) 
         - [Parallel WaveNet](https://arxiv.org/abs/1711.10433)
