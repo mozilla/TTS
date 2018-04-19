@@ -14,7 +14,8 @@
   "lr": 0.002,
   "warmup_steps": 4000,
   "batch_size": 32,
-  "eval_batch_size":32,
+  "eval_batch_size": 32,
+  "tbptt_len": 100
   "r": 5,
 
   "griffin_lim_iters": 60,
