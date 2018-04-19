@@ -74,11 +74,11 @@ def train(model, criterion, data_loader, optimizer, epoch):
         start_time = time.time()
 
         # setup input data
-        text_input = data[0]
-        text_lengths = data[1]
-        linear_input = data[2]
-        mel_input = data[3]
-        mel_lengths = data[4]
+        text_input = data[0]    # b x #char
+        text_lengths = data[1]  # b x 1
+        linear_input = data[2]  # b x t x dim
+        mel_input = data[3]     # b x t x dim
+        mel_lengths = data[4]   # b x 1
 
         current_step = num_iter + args.restore_step + \
             epoch * len(data_loader) + 1
