@@ -32,17 +32,17 @@ class Tacotron(nn.Module):
         
         inputs = self.embedding(characters)
         # batch x time x dim
-        hiddens[0] = self.encoder(inputs, hiddens[0])
+        encoder_output, hiddens[0] = self.encoder(inputs, hiddens[0])
         # batch x time x dim*r
         mel_outputs, alignments, hiddens[1], hiddens[2] =\
-            self.decoder(hiddens[0], mel_specs, 
+            self.decoder(encoder_output, mel_specs, 
                          hiddens[1],
                          hiddens[2])
         # Reshape
         # batch x time x dim
         mel_outputs = mel_outputs.view(B, -1, self.mel_dim)
-        hiddens[3] = self.postnet(mel_outputs, hiddens[3])
-        linear_outputs = self.last_linear(hiddens[3])
+        postnet_output, hiddens[3] = self.postnet(mel_outputs, hiddens[3])
+        linear_outputs = self.last_linear(postnet_output)
         
         # respahe hiddens
         hiddens[0] = hiddens[0].transpose(0, 1).contiguous()

@@ -181,8 +181,8 @@ class CBHG(nn.Module):
         # (B, T_in, in_features*2)
         # TODO: replace GRU with convolution as in Deep Voice 3
         self.gru.flatten_parameters()
-        outputs, _ = self.gru(x, hidden_gru)
-        return outputs
+        outputs, hidden_gru = self.gru(x, hidden_gru)
+        return outputs, hidden_gru
 
 
 class Encoder(nn.Module):
