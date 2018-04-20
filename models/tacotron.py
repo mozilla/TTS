@@ -40,9 +40,8 @@ class Tacotron(nn.Module):
         linear_outputs = self.last_linear(hiddens[3])
         return mel_outputs, linear_outputs, alignments, hiddens
             
-    def init_rnn_hiddens(self, inputs, start):
+    def init_rnn_hiddens(self, B):
         weight = next(self.parameters()).data
-        B = inputs.size(0)
         hiddens = [Variable(weight.new(2, B, 128).zero_()),
                        Variable(weight.new(B, 256).zero_()),
                        [Variable(weight.new(B, 256).zero_()), 
