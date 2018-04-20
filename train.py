@@ -106,7 +106,7 @@ def train(model, criterion, data_loader, optimizer, epoch):
             
         # TBPTT 
         tbptt = TBPTT(text_input_var, mel_spec_var, linear_spec_var, mel_lengths_var, c.tbptt_len)
-        for text_input_var, mel_spec_var, linear_spec_var, mel_lengths_var in tbtt:
+        for text_input_var, mel_spec_var, linear_spec_var, mel_lengths_var in tbptt:
             # forward pass
             mel_output, linear_output, alignments =\
                 model.forward(text_input_var, mel_spec_var, tbptt.start)
