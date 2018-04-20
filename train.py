@@ -105,7 +105,7 @@ def train(model, criterion, data_loader, optimizer, epoch):
             linear_spec_var = linear_spec_var.cuda()
             
         # TBPTT 
-        hiddens = model.init_rnn_hiddens()
+        hiddens = model.module.init_rnn_hiddens()
         tbptt = TBPTT(text_input_var, mel_spec_var, linear_spec_var, mel_lengths_var, c.tbptt_len)
         for text_tbptt, mel_spec_tbptt, linear_spec_tbptt, mel_lengths_tbptt in tbptt:
             # forward pass
