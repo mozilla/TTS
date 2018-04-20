@@ -2,6 +2,8 @@ import torch
 import numpy as np
 
 
+use_cuda = torch.cuda.is_available()
+
 class TBPTT():
     
     def __init__(self, text, mel_spec, linear_spec, lengths, tbp_len):
@@ -33,7 +35,10 @@ class TBPTT():
             diff = int(self.num_iters - len(tbp_lens))
             assert diff >= 0
             tbp_lens += [0] * diff
-            bucket.append(torch.LongTensor(tbp_lens))
+            if use_cuda:
+                bucket.append(torch.LongTensor(tbp_lens).cuda())
+            else:
+                bucket.append(torch.LongTensor(tbp_lens))
         self.lengths = torch.autograd.Variable(torch.stack(bucket), volatile=True)
         self.lengths = list(torch.split(self.lengths, 1, 1))
         self.lengths = [l.squeeze() for l in self.lengths]
