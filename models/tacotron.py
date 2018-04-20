@@ -25,7 +25,6 @@ class Tacotron(nn.Module):
     def forward(self, characters, mel_specs=None, start=True):
         B = characters.size(0)
         inputs = self.embedding(characters)
-        self.init_rnn_hidden_states(inputs, start)
         # batch x time x dim
         hiddens[0] = self.encoder(inputs, hiddens[0])
         # batch x time x dim*r
