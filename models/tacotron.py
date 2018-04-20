@@ -41,8 +41,8 @@ class Tacotron(nn.Module):
         # Reshape
         # batch x time x dim
         mel_outputs = mel_outputs.view(B, -1, self.mel_dim)
-        linear_outputs, self.postnet_rnn_hidden = self.postnet(mel_outputs, self.postnet_rnn_hidden)
-        linear_outputs = self.last_linear(linear_outputs)
+        self.postnet_rnn_hidden = self.postnet(mel_outputs, self.postnet_rnn_hidden)
+        linear_outputs = self.last_linear(self.postnet_rnn_hidden)
         
         return mel_outputs, linear_outputs, alignments
             
