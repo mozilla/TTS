@@ -39,7 +39,7 @@ class TBPTT():
                 bucket.append(torch.LongTensor(tbp_lens).cuda())
             else:
                 bucket.append(torch.LongTensor(tbp_lens))
-        self.lengths = torch.autograd.Variable(torch.stack(bucket), volatile=True)
+        self.lengths = torch.autograd.Variable(torch.stack(bucket))
         self.lengths = list(torch.split(self.lengths, 1, 1))
         self.lengths = [l.squeeze() for l in self.lengths]
         
