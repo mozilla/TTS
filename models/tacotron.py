@@ -22,8 +22,10 @@ class Tacotron(nn.Module):
         self.postnet = CBHG(mel_dim, K=8, projections=[256, mel_dim])
         self.last_linear = nn.Linear(mel_dim * 2, linear_dim)
 
-    def forward(self, characters, mel_specs=None, start=True):
+    def forward(self, characters, mel_specs=None, hiddens=None):
         B = characters.size(0)
+        if hiddens is None:
+            hiddens = self.init_rnn_hiddens(B)
         inputs = self.embedding(characters)
         # batch x time x dim
         hiddens[0] = self.encoder(inputs, hiddens[0])
