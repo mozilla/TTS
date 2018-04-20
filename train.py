@@ -106,17 +106,17 @@ def train(model, criterion, data_loader, optimizer, epoch):
             
         # TBPTT 
         tbptt = TBPTT(text_input_var, mel_spec_var, linear_spec_var, mel_lengths_var, c.tbptt_len)
-        for text_input_var, mel_spec_var, linear_spec_var, mel_lengths_var in tbptt:
+        for text_tbptt, mel_spec_tbptt, linear_spec_tbptt, mel_lengths_tbptt in tbptt:
             # forward pass
             mel_output, linear_output, alignments =\
-                model.forward(text_input_var, mel_spec_var, tbptt.start)
+                model.forward(text_tbptt, mel_spec_tbptt, tbptt.start)
 
             # loss computation
-            mel_loss = criterion(mel_output, mel_spec_var, mel_lengths_var)
-            linear_loss = 0.5 * criterion(linear_output, linear_spec_var, mel_lengths_var) \
+            mel_loss = criterion(mel_output, mel_spec_tbptt, mel_lengths_tbptt)
+            linear_loss = 0.5 * criterion(linear_output, linear_spec_tbptt, mel_lengths_tbptt) \
                 + 0.5 * criterion(linear_output[:, :, :n_priority_freq],
-                                  linear_spec_var[:, :, :n_priority_freq],
-                                  mel_lengths_var)
+                                  linear_spec_tbptt[:, :, :n_priority_freq],
+                                  mel_lengths_tbptt)
             loss = mel_loss + linear_loss
 
             # backpass and check the grad norm
