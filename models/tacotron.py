@@ -43,6 +43,10 @@ class Tacotron(nn.Module):
         mel_outputs = mel_outputs.view(B, -1, self.mel_dim)
         hiddens[3] = self.postnet(mel_outputs, hiddens[3])
         linear_outputs = self.last_linear(hiddens[3])
+        
+        # respahe hiddens
+        hiddens[0] = hiddens[0].transpose(0, 1).contiguous()
+        hiddens[3] = hiddens[3].transpose(0, 1).contiguous()
         return mel_outputs, linear_outputs, alignments, hiddens
             
     def init_rnn_hiddens(self, B):
