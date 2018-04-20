@@ -24,8 +24,12 @@ class Tacotron(nn.Module):
 
     def forward(self, characters, mel_specs=None, hiddens=None):
         B = characters.size(0)
+        
         if hiddens is None:
             hiddens = self.init_rnn_hiddens(B)
+        hiddens[0] = hiddens[0].transpose(0, 1)
+        hiddens[3] = hiddens[3].transpose(0, 1)
+        
         inputs = self.embedding(characters)
         # batch x time x dim
         hiddens[0] = self.encoder(inputs, hiddens[0])
@@ -43,9 +47,9 @@ class Tacotron(nn.Module):
             
     def init_rnn_hiddens(self, B):
         weight = next(self.parameters()).data
-        hiddens = [Variable(weight.new(2, B, 128).zero_()),
+        hiddens = [Variable(weight.new(B, 2, 128).zero_()),
                        Variable(weight.new(B, 256).zero_()),
                        [Variable(weight.new(B, 256).zero_()), 
                             Variable(weight.new(B, 256).zero_())],
-                       Variable(weight.new(2, B, self.mel_dim).zero_())]
+                       Variable(weight.new(B, 2, self.mel_dim).zero_())]
         return hiddens
