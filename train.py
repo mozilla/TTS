@@ -102,50 +102,54 @@ def train(model, criterion, data_loader, optimizer, epoch):
             mel_spec_var = mel_spec_var.cuda()
             mel_lengths_var = mel_lengths_var.cuda()
             linear_spec_var = linear_spec_var.cuda()
+            
+        # TBPTT 
+        tbptt = TBPTT(text_input_var, mel_spec_var, linear_spec_var, mel_lengths_var, c.tbptt_len)
+        for text_input_var, mel_spec_var, linear_spec_var, mel_lengths_var in tbtt:
+            # forward pass
+            mel_output, linear_output, alignments =\
+                model.forward(text_input_var, mel_spec_var, tbptt.start)
 
-        # forward pass
-        mel_output, linear_output, alignments =\
-            model.forward(text_input_var, mel_spec_var)
+            # loss computation
+            mel_loss = criterion(mel_output, mel_spec_var, mel_lengths_var)
+            linear_loss = 0.5 * criterion(linear_output, linear_spec_var, mel_lengths_var) \
+                + 0.5 * criterion(linear_output[:, :, :n_priority_freq],
+                                  linear_spec_var[:, :, :n_priority_freq],
+                                  mel_lengths_var)
+            loss = mel_loss + linear_loss
 
-        # loss computation
-        mel_loss = criterion(mel_output, mel_spec_var, mel_lengths_var)
-        linear_loss = 0.5 * criterion(linear_output, linear_spec_var, mel_lengths_var) \
-            + 0.5 * criterion(linear_output[:, :, :n_priority_freq],
-                              linear_spec_var[:, :, :n_priority_freq],
-                              mel_lengths_var)
-        loss = mel_loss + linear_loss
+            # backpass and check the grad norm
+            loss.backward()
+            grad_norm, skip_flag = check_update(model, 0.5, 100)
+            if skip_flag:
+                optimizer.zero_grad()
+                print(" | > Iteration skipped!!")
+                continue
+            optimizer.step()
 
-        # backpass and check the grad norm
-        loss.backward()
-        grad_norm, skip_flag = check_update(model, 0.5, 100)
-        if skip_flag:
-            optimizer.zero_grad()
-            print(" | > Iteration skipped!!")
-            continue
-        optimizer.step()
+            step_time = time.time() - start_time
+            epoch_time += step_time
 
-        step_time = time.time() - start_time
-        epoch_time += step_time
+            # update
+            progbar.update(num_iter+1, values=[('total_loss', loss.data[0]),
+                                               ('linear_loss',
+                                                linear_loss.data[0]),
+                                               ('mel_loss', mel_loss.data[0]),
+                                               ('grad_norm', grad_norm)])
+            avg_linear_loss += linear_loss.data[0]
+            avg_mel_loss += mel_loss.data[0]
 
-        # update
-        progbar.update(num_iter+1, values=[('total_loss', loss.data[0]),
-                                           ('linear_loss',
-                                            linear_loss.data[0]),
-                                           ('mel_loss', mel_loss.data[0]),
-                                           ('grad_norm', grad_norm)])
-        avg_linear_loss += linear_loss.data[0]
-        avg_mel_loss += mel_loss.data[0]
+            # Plot Training Iter Stats
+            tb.add_scalar('TrainIterLoss/TotalLoss', loss.data[0], current_step)
+            tb.add_scalar('TrainIterLoss/LinearLoss', linear_loss.data[0],
+                          current_step)
+            tb.add_scalar('TrainIterLoss/MelLoss', mel_loss.data[0], current_step)
+            tb.add_scalar('Params/LearningRate', optimizer.param_groups[0]['lr'],
+                          current_step)
+            tb.add_scalar('Params/GradNorm', grad_norm, current_step)
+            tb.add_scalar('Time/StepTime', step_time, current_step)
 
-        # Plot Training Iter Stats
-        tb.add_scalar('TrainIterLoss/TotalLoss', loss.data[0], current_step)
-        tb.add_scalar('TrainIterLoss/LinearLoss', linear_loss.data[0],
-                      current_step)
-        tb.add_scalar('TrainIterLoss/MelLoss', mel_loss.data[0], current_step)
-        tb.add_scalar('Params/LearningRate', optimizer.param_groups[0]['lr'],
-                      current_step)
-        tb.add_scalar('Params/GradNorm', grad_norm, current_step)
-        tb.add_scalar('Time/StepTime', step_time, current_step)
-
+        # checkpoint and stats keeping
         if current_step % c.save_step == 0:
             if c.checkpoint:
                 # save model

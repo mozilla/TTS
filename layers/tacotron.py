@@ -137,7 +137,7 @@ class CBHG(nn.Module):
         self.gru = nn.GRU(
             in_features, in_features, 1, batch_first=True, bidirectional=True)
 
-    def forward(self, inputs):
+    def forward(self, inputs, hidden_gru=None):
         # (B, T_in, in_features)
         x = inputs
 
@@ -181,8 +181,8 @@ class CBHG(nn.Module):
         # (B, T_in, in_features*2)
         # TODO: replace GRU with convolution as in Deep Voice 3
         self.gru.flatten_parameters()
-        outputs, _ = self.gru(x)
-        return outputs
+        outputs, hidden_gru = self.gru(x, hidden_gru)
+        return outputs, hidden_gru
 
 
 class Encoder(nn.Module):
@@ -193,7 +193,7 @@ class Encoder(nn.Module):
         self.prenet = Prenet(in_features, out_features=[256, 128])
         self.cbhg = CBHG(128, K=16, projections=[128, 128])
 
-    def forward(self, inputs):
+    def forward(self, inputs, hidden_gru):
         r"""
         Args:
             inputs (FloatTensor): embedding features
@@ -203,8 +203,8 @@ class Encoder(nn.Module):
             - outputs: batch x time x 128*2
         """
         inputs = self.prenet(inputs)
-        return self.cbhg(inputs)
-
+        return self.cbhg(inputs, hidden_gru)
+    
 
 class Decoder(nn.Module):
     r"""Decoder module.
@@ -235,7 +235,7 @@ class Decoder(nn.Module):
         # RNN_state -> |Linear| -> mel_spec
         self.proj_to_mel = nn.Linear(256, memory_dim * r)
 
-    def forward(self, inputs, memory=None):
+    def forward(self, inputs, memory=None, decoder_rnn_hiddens=None, attention_rnn_hidden=None):
         """
         Decoder forward step.
 
@@ -266,11 +266,13 @@ class Decoder(nn.Module):
         initial_memory = Variable(
             inputs.data.new(B, self.memory_dim * self.r).zero_())
         # Init decoder states
-        attention_rnn_hidden = Variable(
-            inputs.data.new(B, 256).zero_())
-        decoder_rnn_hiddens = [Variable(
-            inputs.data.new(B, 256).zero_())
-            for _ in range(len(self.decoder_rnns))]
+        if attention_rnn_hidden is None:
+            attention_rnn_hidden = Variable(
+                inputs.data.new(B, 256).zero_())
+        if decoder_rnn_hiddens is None:
+            decoder_rnn_hiddens = [Variable(
+                inputs.data.new(B, 256).zero_())
+                for _ in range(len(self.decoder_rnns))]
         current_context_vec = Variable(
             inputs.data.new(B, 256).zero_())
         # Time first (T_decoder, B, memory_dim)
@@ -320,7 +322,7 @@ class Decoder(nn.Module):
         # Back to batch first
         alignments = torch.stack(alignments).transpose(0, 1)
         outputs = torch.stack(outputs).transpose(0, 1).contiguous()
-        return outputs, alignments
+        return outputs, alignments, attention_rnn_hidden, decoder_rnn_hiddens
 
 
 def is_end_of_frames(output, alignment, eps=0.01):  # 0.2
