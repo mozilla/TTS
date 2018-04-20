@@ -32,10 +32,10 @@ class Tacotron(nn.Module):
         inputs = self.embedding(characters)
         self.init_rnn_hidden_states(inputs, start)
         # batch x time x dim
-        encoder_outputs, self.encoder_rnn_hidden = self.encoder(inputs, self.encoder_rnn_hidden)
+        self.encoder_rnn_hidden = self.encoder(inputs, self.encoder_rnn_hidden)
         # batch x time x dim*r
         mel_outputs, alignments, self.attention_rnn_hidden, self.decoder_rnn_hiddens =\
-            self.decoder(encoder_outputs, mel_specs, 
+            self.decoder(self.encoder_rnn_hidden, mel_specs, 
                          self.attention_rnn_hidden,
                          self.decoder_rnn_hiddens)
         # Reshape
