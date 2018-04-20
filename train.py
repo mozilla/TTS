@@ -108,11 +108,12 @@ def train(model, criterion, data_loader, optimizer, epoch):
         # TBPTT 
         hiddens = model.module.init_rnn_hiddens(c.batch_size)
         tbptt = TBPTT(text_input_var, mel_spec_var, linear_spec_var, mel_lengths_var, c.tbptt_len)
-        for tbptt_step, text_tbptt, mel_spec_tbptt, linear_spec_tbptt, mel_lengths_tbptt in enumerate(tbptt):
+        for tbptt_step, tbptt_data in enumerate(tbptt):
+            # fecth data
+            text_tbptt, mel_spec_tbptt, linear_spec_tbptt, mel_lengths_tbptt = tbptt_data
             # forward pass
             mel_output, linear_output, alignments, hiddens =\
                 model.forward(text_tbptt, mel_spec_tbptt, hiddens)
-
             # loss computation
             mel_loss = criterion(mel_output, mel_spec_tbptt, mel_lengths_tbptt)
             linear_loss = 0.5 * criterion(linear_output, linear_spec_tbptt, mel_lengths_tbptt) \
@@ -120,7 +121,6 @@ def train(model, criterion, data_loader, optimizer, epoch):
                                   linear_spec_tbptt[:, :, :n_priority_freq],
                                   mel_lengths_tbptt)
             loss = mel_loss + linear_loss
-
             # backpass and check the grad norm
             loss.backward()
             grad_norm, skip_flag = check_update(model, 0.5, 100)
@@ -129,7 +129,6 @@ def train(model, criterion, data_loader, optimizer, epoch):
                 print(" | > Iteration skipped!!")
                 continue
             optimizer.step()
-
             # update progbar
             progbar.update(num_step+1, values=[('total_loss', loss.data[0]),
                                                ('linear_loss',
@@ -138,47 +137,39 @@ def train(model, criterion, data_loader, optimizer, epoch):
                                                ('grad_norm', grad_norm)])
             avg_linear_loss += linear_loss.data[0]
             avg_mel_loss += mel_loss.data[0]
-
             # Plot TBPTT step stats
             tb.add_scalar('TrainIterLoss/TotalLoss', loss.data[0], current_step)
             tb.add_scalar('TrainIterLoss/LinearLoss', linear_loss.data[0],
                           current_step)
             tb.add_scalar('TrainIterLoss/MelLoss', mel_loss.data[0], current_step)
             tb.add_scalar('Params/GradNorm', grad_norm, current_step)
-            
             # detach hidden states
             hiddens[0] = hiddens[0].detach()
             hiddens[1] = hiddens[1].detach()
             hiddens[2] = [hidden.detach() for hidden in hiddens[2]]
             hiddens[3] = hiddens[3].detach()
-        
         # print step stats
         step_time = time.time() - start_time
         epoch_time += step_time
         tb.add_scalar('Time/StepTime', step_time, current_step)
         tb.add_scalar('Params/LearningRate', optimizer.param_groups[0]['lr'],
                           current_step)
-
         # checkpoint and stats keeping
         if current_step % c.save_step == 0:
             if c.checkpoint:
                 # save model
                 save_checkpoint(model, optimizer, linear_loss.data[0],
                                 OUT_PATH, current_step, epoch)
-
             # Diagnostic visualizations
             const_spec = linear_output[0].data.cpu().numpy()
             gt_spec = linear_spec_var[0].data.cpu().numpy()
-
             const_spec = plot_spectrogram(const_spec, data_loader.dataset.ap)
             gt_spec = plot_spectrogram(gt_spec, data_loader.dataset.ap)
             tb.add_image('Visual/Reconstruction', const_spec, current_step)
             tb.add_image('Visual/GroundTruth', gt_spec, current_step)
-
             align_img = alignments[0].data.cpu().numpy()
             align_img = plot_alignment(align_img)
             tb.add_image('Visual/Alignment', align_img, current_step)
-
             # Sample audio
             audio_signal = linear_output[0].data.cpu().numpy()
             data_loader.dataset.ap.griffin_lim_iters = 60
@@ -192,12 +183,10 @@ def train(model, criterion, data_loader, optimizer, epoch):
                 # print(audio_signal.max())
                 # print(audio_signal.min())
                 pass
-    
     # Computer Average Losses
     avg_linear_loss /= (num_step * tbptt_step + 1)
     avg_mel_loss /= (num_step * tbptt_step + 1)
     avg_total_loss = avg_mel_loss + avg_linear_loss
-
     # Plot Training Epoch Stats
     tb.add_scalar('TrainEpochLoss/TotalLoss', avg_total_loss, current_step)
     tb.add_scalar('TrainEpochLoss/LinearLoss', avg_linear_loss, current_step)
@@ -212,37 +201,31 @@ def evaluate(model, criterion, data_loader, current_step):
     epoch_time = 0
     avg_linear_loss = 0
     avg_mel_loss = 0
-
     print(" | > Validation")
     progbar = Progbar(len(data_loader.dataset) / c.batch_size)
     n_priority_freq = int(3000 / (c.sample_rate * 0.5) * c.num_freq)
     for num_step, data in enumerate(data_loader):
         start_time = time.time()
-
         # setup input data
         text_input = data[0]
         text_lengths = data[1]
         linear_input = data[2]
         mel_input = data[3]
         mel_lengths = data[4]
-
         # convert inputs to variables
         text_input_var = Variable(text_input)
         mel_spec_var = Variable(mel_input)
         mel_lengths_var = Variable(mel_lengths)
         linear_spec_var = Variable(linear_input, volatile=True)
-
         # dispatch data to GPU
         if use_cuda:
             text_input_var = text_input_var.cuda()
             mel_spec_var = mel_spec_var.cuda()
             mel_lengths_var = mel_lengths_var.cuda()
             linear_spec_var = linear_spec_var.cuda()
-
         # forward pass
         mel_output, linear_output, alignments =\
             model.forward(text_input_var, mel_spec_var)
-
         # loss computation
         mel_loss = criterion(mel_output, mel_spec_var, mel_lengths_var)
         linear_loss = 0.5 * criterion(linear_output, linear_spec_var, mel_lengths_var) \
@@ -250,10 +233,8 @@ def evaluate(model, criterion, data_loader, current_step):
                               linear_spec_var[:, :, :n_priority_freq],
                               mel_lengths_var)
         loss = mel_loss + linear_loss
-
         step_time = time.time() - start_time
         epoch_time += step_time
-
         # update
         progbar.update(num_step+1, values=[('total_loss', loss.data[0]),
                                            ('linear_loss',
@@ -262,21 +243,17 @@ def evaluate(model, criterion, data_loader, current_step):
 
         avg_linear_loss += linear_loss.data[0]
         avg_mel_loss += mel_loss.data[0]
-
     # Diagnostic visualizations
     idx = np.random.randint(mel_input.shape[0])
     const_spec = linear_output[idx].data.cpu().numpy()
     gt_spec = linear_spec_var[idx].data.cpu().numpy()
     align_img = alignments[idx].data.cpu().numpy()
-
     const_spec = plot_spectrogram(const_spec, data_loader.dataset.ap)
     gt_spec = plot_spectrogram(gt_spec, data_loader.dataset.ap)
     align_img = plot_alignment(align_img)
-
     tb.add_image('ValVisual/Reconstruction', const_spec, current_step)
     tb.add_image('ValVisual/GroundTruth', gt_spec, current_step)
     tb.add_image('ValVisual/ValidationAlignment', align_img, current_step)
-
     # Sample audio
     audio_signal = linear_output[idx].data.cpu().numpy()
     data_loader.dataset.ap.griffin_lim_iters = 60
@@ -289,12 +266,10 @@ def evaluate(model, criterion, data_loader, current_step):
         # print(audio_signal.max())
         # print(audio_signal.min())
         pass
-
     # compute average losses
     avg_linear_loss /= (num_step + 1)
     avg_mel_loss /= (num_step + 1)
     avg_total_loss = avg_mel_loss + avg_linear_loss
-
     # Plot Learning Stats
     tb.add_scalar('ValEpochLoss/TotalLoss', avg_total_loss, current_step)
     tb.add_scalar('ValEpochLoss/LinearLoss', avg_linear_loss, current_step)
@@ -306,7 +281,6 @@ def main(args):
     print(" > Using dataset: {}".format(c.dataset))
     mod = importlib.import_module('datasets.{}'.format(c.dataset))
     Dataset = getattr(mod, c.dataset+"Dataset")
-
     # Setup the dataset
     train_dataset = Dataset(os.path.join(c.data_path, c.meta_file_train),
                             os.path.join(c.data_path, 'wavs'),
@@ -323,12 +297,10 @@ def main(args):
                             c.power,
                             min_seq_len=c.min_seq_len
                             )
-
     train_loader = DataLoader(train_dataset, batch_size=c.batch_size,
                               shuffle=False, collate_fn=train_dataset.collate_fn,
                               drop_last=False, num_workers=c.num_loader_workers,
                               pin_memory=True)
-
     val_dataset = Dataset(os.path.join(c.data_path, c.meta_file_val),
                           os.path.join(c.data_path, 'wavs'),
                           c.r,
@@ -343,24 +315,19 @@ def main(args):
                           c.num_freq,
                           c.power
                           )
-
     val_loader = DataLoader(val_dataset, batch_size=c.eval_batch_size,
                             shuffle=False, collate_fn=val_dataset.collate_fn,
                             drop_last=False, num_workers=4,
                             pin_memory=True)
-
     model = Tacotron(c.embedding_size,
                      c.num_freq,
                      c.num_mels,
                      c.r)
-
     optimizer = optim.Adam(model.parameters(), lr=c.lr)
-
     if use_cuda:
         criterion = L1LossMasked().cuda()
     else:
         criterion = L1LossMasked()
-
     if args.restore_path:
         checkpoint = torch.load(args.restore_path)
         model.load_state_dict(checkpoint['model'])
@@ -373,19 +340,14 @@ def main(args):
     else:
         args.restore_step = 0
         print("\n > Starting a new training")
-
     if use_cuda:
         model = nn.DataParallel(model.cuda())
-
     num_params = count_parameters(model)
     print(" | > Model has {} parameters".format(num_params))
-
     if not os.path.exists(CHECKPOINT_PATH):
         os.mkdir(CHECKPOINT_PATH)
-
     if 'best_loss' not in locals():
         best_loss = float('inf')
-
     for epoch in range(0, c.epochs):
         train_loss, current_step = train(
             model, criterion, train_loader, optimizer, epoch)
