@@ -35,7 +35,7 @@ class Tacotron(nn.Module):
         hiddens[0] = self.encoder(inputs, hiddens[0])
         # batch x time x dim*r
         mel_outputs, alignments, hiddens[1], hiddens[2] =\
-            self.decoder(self.encoder_rnn_hidden, mel_specs, 
+            self.decoder(hiddens[0], mel_specs, 
                          hiddens[1],
                          hiddens[2])
         # Reshape
