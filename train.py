@@ -54,7 +54,7 @@ pickle.dump(c, open(tmp_path, "wb"))
 LOG_DIR = OUT_PATH
 tb = SummaryWriter(LOG_DIR)
 
-
+    
 def signal_handler(signal, frame):
     """Ctrl+C handler to remove empty experiment folder"""
     print(" !! Pressed Ctrl+C !!")
@@ -105,11 +105,12 @@ def train(model, criterion, data_loader, optimizer, epoch):
             linear_spec_var = linear_spec_var.cuda()
             
         # TBPTT 
+        hiddens = model.init_rnn_hiddens()
         tbptt = TBPTT(text_input_var, mel_spec_var, linear_spec_var, mel_lengths_var, c.tbptt_len)
         for text_tbptt, mel_spec_tbptt, linear_spec_tbptt, mel_lengths_tbptt in tbptt:
             # forward pass
             mel_output, linear_output, alignments =\
-                model.forward(text_tbptt, mel_spec_tbptt, tbptt.start)
+                model.forward(text_tbptt, mel_spec_tbptt, hiddens)
 
             # loss computation
             mel_loss = criterion(mel_output, mel_spec_tbptt, mel_lengths_tbptt)
@@ -149,6 +150,12 @@ def train(model, criterion, data_loader, optimizer, epoch):
                           current_step)
             tb.add_scalar('Params/GradNorm', grad_norm, current_step)
             tb.add_scalar('Time/StepTime', step_time, current_step)
+            
+            # detach hidden states
+            hiddens[0] = hiddens[0].detach()
+            hiddens[1] = hiddens[1].detach()
+            hiddens[2] = [hidden.detach() for hidden in hiddens[2]]
+            hiddens[3] = hiddens[3].detach()
 
         # checkpoint and stats keeping
         if current_step % c.save_step == 0:

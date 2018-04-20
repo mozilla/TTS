@@ -21,41 +21,31 @@ class Tacotron(nn.Module):
         self.decoder = Decoder(256, mel_dim, r)
         self.postnet = CBHG(mel_dim, K=8, projections=[256, mel_dim])
         self.last_linear = nn.Linear(mel_dim * 2, linear_dim)
-        
-        self.encoder_rnn_hidden = None
-        self.attention_rnn_hidden = None
-        self.decoder_rnn_hidden = None
-        self.postnet_rnn_hidden = None
 
     def forward(self, characters, mel_specs=None, start=True):
         B = characters.size(0)
         inputs = self.embedding(characters)
         self.init_rnn_hidden_states(inputs, start)
         # batch x time x dim
-        self.encoder_rnn_hidden = self.encoder(inputs, self.encoder_rnn_hidden)
+        hiddens[0] = self.encoder(inputs, hiddens[0])
         # batch x time x dim*r
-        mel_outputs, alignments, self.attention_rnn_hidden, self.decoder_rnn_hiddens =\
+        mel_outputs, alignments, hiddens[1], hiddens[2] =\
             self.decoder(self.encoder_rnn_hidden, mel_specs, 
-                         self.attention_rnn_hidden,
-                         self.decoder_rnn_hiddens)
+                         hiddens[1],
+                         hiddens[2])
         # Reshape
         # batch x time x dim
         mel_outputs = mel_outputs.view(B, -1, self.mel_dim)
-        self.postnet_rnn_hidden = self.postnet(mel_outputs, self.postnet_rnn_hidden)
-        linear_outputs = self.last_linear(self.postnet_rnn_hidden)
-        
-        return mel_outputs, linear_outputs, alignments
+        hiddens[3] = self.postnet(mel_outputs, hiddens[3])
+        linear_outputs = self.last_linear(hiddens[3])
+        return mel_outputs, linear_outputs, alignments, hiddens
             
-    def init_rnn_hidden_states(self, inputs, start):
+    def init_rnn_hiddens(self, inputs, start):
+        weight = next(self.parameters()).data
         B = inputs.size(0)
-        if start:
-            self.encoder_rnn_hidden = Variable(inputs.data.new(2, B, 128).zero_())
-            self.attention_rnn_hidden = Variable(inputs.data.new(B, 256).zero_())
-            self.decoder_rnn_hiddens = [Variable(inputs.data.new(B, 256).zero_()), 
-                                        Variable(inputs.data.new(B, 256).zero_())]
-            self.postnet_rnn_hidden = Variable(inputs.data.new(2, B, self.mel_dim).zero_())
-        else:
-            self.encoder_rnn_hidden = self.encoder_rnn_hidden.detach()
-            self.attention_rnn_hidden = self.attention_rnn_hidden.detach()
-            self.decoder_rnn_hiddens = [h.detach() for h in self.decoder_rnn_hiddens]
-            self.postnet_rnn_hidden = self.postnet_rnn_hidden.detach()
+        hiddens = [Variable(weight.new(2, B, 128).zero_()),
+                       Variable(weight.new(B, 256).zero_()),
+                       [Variable(weight.new(B, 256).zero_()), 
+                            Variable(weight.new(B, 256).zero_())],
+                       Variable(weight.new(2, B, self.mel_dim).zero_())]
+        return hiddens
