@@ -27,8 +27,8 @@ class Tacotron(nn.Module):
         
         if hiddens is None:
             hiddens = self.init_rnn_hiddens(B)
-        hiddens[0] = hiddens[0].transpose(0, 1)
-        hiddens[3] = hiddens[3].transpose(0, 1)
+        hiddens[0] = hiddens[0].transpose(0, 1).contiguous()
+        hiddens[3] = hiddens[3].transpose(0, 1).contiguous()
         
         inputs = self.embedding(characters)
         # batch x time x dim
