@@ -53,7 +53,7 @@ class Tacotron(nn.Module):
             self.attention_rnn_hidden = Variable(inputs.data.new(B, 256).zero_())
             self.decoder_rnn_hiddens = [Variable(inputs.data.new(B, 256).zero_()), 
                                         Variable(inputs.data.new(B, 256).zero_())]
-            self.postnet_rnn_hidden = Variable(inputs.data.new(2, B, 128).zero_())
+            self.postnet_rnn_hidden = Variable(inputs.data.new(2, B, self.mel_dim).zero_())
         else:
             self.encoder_rnn_hidden = self.encoder_rnn_hidden.detach()
             self.attention_rnn_hidden = self.attention_rnn_hidden.detach()
