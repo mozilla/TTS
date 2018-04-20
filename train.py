@@ -71,7 +71,7 @@ def train(model, criterion, data_loader, optimizer, epoch):
     print(" | > Epoch {}/{}".format(epoch, c.epochs))
     progbar = Progbar(len(data_loader.dataset) / c.batch_size)
     n_priority_freq = int(3000 / (c.sample_rate * 0.5) * c.num_freq)
-    for num_iter, data in enumerate(data_loader):
+    for num_step, data in enumerate(data_loader):
         start_time = time.time()
 
         # setup input data
@@ -81,7 +81,8 @@ def train(model, criterion, data_loader, optimizer, epoch):
         mel_input = data[3]     # b x t x dim
         mel_lengths = data[4]   # b x 1
 
-        current_step = num_iter + args.restore_step + \
+        # compute the aggregate step
+        current_step = num_step + args.restore_step + \
             epoch * len(data_loader) + 1
 
         # setup lr
@@ -107,7 +108,7 @@ def train(model, criterion, data_loader, optimizer, epoch):
         # TBPTT 
         hiddens = model.module.init_rnn_hiddens(c.batch_size)
         tbptt = TBPTT(text_input_var, mel_spec_var, linear_spec_var, mel_lengths_var, c.tbptt_len)
-        for text_tbptt, mel_spec_tbptt, linear_spec_tbptt, mel_lengths_tbptt in tbptt:
+        for tbptt_step, text_tbptt, mel_spec_tbptt, linear_spec_tbptt, mel_lengths_tbptt in enumerate(tbptt):
             # forward pass
             mel_output, linear_output, alignments, hiddens =\
                 model.forward(text_tbptt, mel_spec_tbptt, hiddens)
@@ -129,11 +130,8 @@ def train(model, criterion, data_loader, optimizer, epoch):
                 continue
             optimizer.step()
 
-            step_time = time.time() - start_time
-            epoch_time += step_time
-
-            # update
-            progbar.update(num_iter+1, values=[('total_loss', loss.data[0]),
+            # update progbar
+            progbar.update(num_step+1, values=[('total_loss', loss.data[0]),
                                                ('linear_loss',
                                                 linear_loss.data[0]),
                                                ('mel_loss', mel_loss.data[0]),
@@ -141,21 +139,25 @@ def train(model, criterion, data_loader, optimizer, epoch):
             avg_linear_loss += linear_loss.data[0]
             avg_mel_loss += mel_loss.data[0]
 
-            # Plot Training Iter Stats
+            # Plot TBPTT step stats
             tb.add_scalar('TrainIterLoss/TotalLoss', loss.data[0], current_step)
             tb.add_scalar('TrainIterLoss/LinearLoss', linear_loss.data[0],
                           current_step)
             tb.add_scalar('TrainIterLoss/MelLoss', mel_loss.data[0], current_step)
-            tb.add_scalar('Params/LearningRate', optimizer.param_groups[0]['lr'],
-                          current_step)
             tb.add_scalar('Params/GradNorm', grad_norm, current_step)
-            tb.add_scalar('Time/StepTime', step_time, current_step)
             
             # detach hidden states
             hiddens[0] = hiddens[0].detach()
             hiddens[1] = hiddens[1].detach()
             hiddens[2] = [hidden.detach() for hidden in hiddens[2]]
             hiddens[3] = hiddens[3].detach()
+        
+        # print step stats
+        step_time = time.time() - start_time
+        epoch_time += step_time
+        tb.add_scalar('Time/StepTime', step_time, current_step)
+        tb.add_scalar('Params/LearningRate', optimizer.param_groups[0]['lr'],
+                          current_step)
 
         # checkpoint and stats keeping
         if current_step % c.save_step == 0:
@@ -190,9 +192,10 @@ def train(model, criterion, data_loader, optimizer, epoch):
                 # print(audio_signal.max())
                 # print(audio_signal.min())
                 pass
-
-    avg_linear_loss /= (num_iter + 1)
-    avg_mel_loss /= (num_iter + 1)
+    
+    # Computer Average Losses
+    avg_linear_loss /= (num_step * tbptt_step + 1)
+    avg_mel_loss /= (num_step * tbptt_step + 1)
     avg_total_loss = avg_mel_loss + avg_linear_loss
 
     # Plot Training Epoch Stats
@@ -201,7 +204,6 @@ def train(model, criterion, data_loader, optimizer, epoch):
     tb.add_scalar('TrainEpochLoss/MelLoss', avg_mel_loss, current_step)
     tb.add_scalar('Time/EpochTime', epoch_time, epoch)
     epoch_time = 0
-
     return avg_linear_loss, current_step
 
 
@@ -214,7 +216,7 @@ def evaluate(model, criterion, data_loader, current_step):
     print(" | > Validation")
     progbar = Progbar(len(data_loader.dataset) / c.batch_size)
     n_priority_freq = int(3000 / (c.sample_rate * 0.5) * c.num_freq)
-    for num_iter, data in enumerate(data_loader):
+    for num_step, data in enumerate(data_loader):
         start_time = time.time()
 
         # setup input data
@@ -253,7 +255,7 @@ def evaluate(model, criterion, data_loader, current_step):
         epoch_time += step_time
 
         # update
-        progbar.update(num_iter+1, values=[('total_loss', loss.data[0]),
+        progbar.update(num_step+1, values=[('total_loss', loss.data[0]),
                                            ('linear_loss',
                                             linear_loss.data[0]),
                                            ('mel_loss', mel_loss.data[0])])
@@ -289,8 +291,8 @@ def evaluate(model, criterion, data_loader, current_step):
         pass
 
     # compute average losses
-    avg_linear_loss /= (num_iter + 1)
-    avg_mel_loss /= (num_iter + 1)
+    avg_linear_loss /= (num_step + 1)
+    avg_mel_loss /= (num_step + 1)
     avg_total_loss = avg_mel_loss + avg_linear_loss
 
     # Plot Learning Stats
