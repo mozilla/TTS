@@ -235,7 +235,7 @@ class Decoder(nn.Module):
         # RNN_state -> |Linear| -> mel_spec
         self.proj_to_mel = nn.Linear(256, memory_dim * r)
 
-    def forward(self, inputs, memory=None, decoder_rnn_hiddens=None, attention_rnn_hidden=None):
+    def forward(self, inputs, memory=None, attention_rnn_hidden=None, decoder_rnn_hiddens=None):
         """
         Decoder forward step.
 
