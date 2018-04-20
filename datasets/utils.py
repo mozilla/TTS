@@ -35,7 +35,8 @@ class TBPTT():
             tbp_lens += [0] * diff
             bucket.append(torch.LongTensor(tbp_lens))
         self.lengths = torch.autograd.Variable(torch.stack(bucket), volatile=True)
-        self.lengths = list(torch.split(self.lengths, 1, 1)).squeeze()
+        self.lengths = list(torch.split(self.lengths, 1, 1))
+        self.lengths = [l.squeeze() for l in self.lengths]
         
     def __next__(self):
         if len(self.mel_spec) == 0:
