@@ -117,9 +117,6 @@ def train(model, criterion, data_loader, optimizer, epoch):
             # forward pass
             mel_output, linear_output, alignments, hiddens =\
                 model.forward(text_tbptt, mel_spec_tbptt, hiddens)
-            linear_outputs.append(linear_output)
-            mel_outputs.append(mel_output)
-            alignmentss.append(alignments)
             # loss computation
             mel_loss = criterion(mel_output, mel_spec_tbptt, mel_lengths_tbptt)
             linear_loss = 0.5 * criterion(linear_output, linear_spec_tbptt, mel_lengths_tbptt) \
@@ -149,6 +146,10 @@ def train(model, criterion, data_loader, optimizer, epoch):
                           current_step)
             tb.add_scalar('TrainIterLoss/MelLoss', mel_loss.data[0], current_step)
             tb.add_scalar('Params/GradNorm', grad_norm, current_step)
+            # aggregate predictions
+            linear_outputs.append(linear_output.detach())
+            mel_outputs.append(mel_output.detach())
+            alignmentss.append(alignments.detach())
             # detach hidden states
             hiddens[0] = hiddens[0].detach()
             hiddens[1] = hiddens[1].detach()
