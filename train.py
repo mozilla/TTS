@@ -159,9 +159,6 @@ def train(model, criterion, data_loader, optimizer, epoch):
         linear_output = torch.cat(linear_outputs, 1)
         mel_output = torch.cat(mel_outputs, 1)
         alignments = torch.cat(alignmentss, 1)
-        del linear_outputs
-        del mel_outputs
-        del alignmentss
         # print step stats
         step_time = time.time() - start_time
         epoch_time += step_time
