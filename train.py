@@ -138,6 +138,7 @@ def train(model, criterion, data_loader, optimizer, epoch):
                                                 linear_loss.data[0]),
                                                ('mel_loss', mel_loss.data[0]),
                                                ('grad_norm', grad_norm)])
+            print()
             avg_linear_loss += linear_loss.data[0]
             avg_mel_loss += mel_loss.data[0]
             # Plot TBPTT step stats
