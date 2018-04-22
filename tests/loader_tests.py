@@ -1,6 +1,7 @@
 import os
 import unittest
 import numpy as np
+import torch
 
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
@@ -324,7 +325,8 @@ class TestTBPTT(unittest.TestCase):
             linear_spec_var = Variable(linear_input, volatile=True)
             
             tbptt = TBPTT(text_input_var, mel_spec_var, linear_spec_var, mel_lengths_var, tbp_size)
-            
+            mel_test = []
+            linear_test = []
             for text, mel, linear, lengths in tbptt:
                 if tbptt.start:
                     assert text.shape[0] == c.batch_size, text.shape
@@ -338,6 +340,12 @@ class TestTBPTT(unittest.TestCase):
                     length = lengths[i].data[0]
                     if item.shape[0] > length:
                         assert item.data[length:].sum() == 0
+                mel_test.append(mel)
+                linear_test.append(linear)
+            mel_test = torch.cat(mel_test, 1)
+            linear_test = torch.cat(linear_test, 1)
+            assert (linear_input - linear_test.data).sum() == 0
+            assert (mel_input - mel_test.data).sum() == 0
                 
 
         
