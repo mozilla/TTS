@@ -147,6 +147,7 @@ def train(model, criterion, data_loader, optimizer, epoch):
             tb.add_scalar('TrainIterLoss/MelLoss', mel_loss.data[0], current_step)
             tb.add_scalar('Params/GradNorm', grad_norm, current_step)
             # aggregate predictions
+            print(alignments.shape)
             linear_outputs.append(linear_output.detach())
             mel_outputs.append(mel_output.detach())
             alignmentss.append(alignments.detach())
