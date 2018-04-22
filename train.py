@@ -108,12 +108,18 @@ def train(model, criterion, data_loader, optimizer, epoch):
         # TBPTT 
         hiddens = model.module.init_rnn_hiddens(c.batch_size)
         tbptt = TBPTT(text_input_var, mel_spec_var, linear_spec_var, mel_lengths_var, c.tbptt_len)
+        linear_outputs = []
+        mel_outputs = []
+        alignmentss = []
         for tbptt_step, tbptt_data in enumerate(tbptt):
             # fecth data
             text_tbptt, mel_spec_tbptt, linear_spec_tbptt, mel_lengths_tbptt = tbptt_data
             # forward pass
             mel_output, linear_output, alignments, hiddens =\
                 model.forward(text_tbptt, mel_spec_tbptt, hiddens)
+            linear_outputs.append(linear_output)
+            mel_outputs.append(mel_output)
+            alignmentss.append(alignments)
             # loss computation
             mel_loss = criterion(mel_output, mel_spec_tbptt, mel_lengths_tbptt)
             linear_loss = 0.5 * criterion(linear_output, linear_spec_tbptt, mel_lengths_tbptt) \
@@ -148,6 +154,13 @@ def train(model, criterion, data_loader, optimizer, epoch):
             hiddens[1] = hiddens[1].detach()
             hiddens[2] = [hidden.detach() for hidden in hiddens[2]]
             hiddens[3] = hiddens[3].detach()
+        # concat predictions
+        linear_output = torch.concat(linear_outputs, 1)
+        mel_output = torch.concat(mel_output, 1)
+        alignments = torch.concat(alignmentss, 1)
+        del linear_outputs
+        del mel_outputs
+        del alignmentss
         # print step stats
         step_time = time.time() - start_time
         epoch_time += step_time
@@ -172,7 +185,7 @@ def train(model, criterion, data_loader, optimizer, epoch):
             tb.add_image('Visual/Alignment', align_img, current_step)
             # Sample audio
             audio_signal = linear_output[0].data.cpu().numpy()
-            data_loader.dataset.ap.griffin_lim_iters = 60
+            data_loader.dataset.ap.griffin_lim_iters = c.griffin_lim_iters
             audio_signal = data_loader.dataset.ap.inv_spectrogram(
                 audio_signal.T)
             try:
@@ -255,7 +268,7 @@ def evaluate(model, criterion, data_loader, current_step):
     tb.add_image('ValVisual/ValidationAlignment', align_img, current_step)
     # Sample audio
     audio_signal = linear_output[idx].data.cpu().numpy()
-    data_loader.dataset.ap.griffin_lim_iters = 60
+    data_loader.dataset.ap.griffin_lim_iters = c.griffin_lim_iters
     audio_signal = data_loader.dataset.ap.inv_spectrogram(audio_signal.T)
     try:
         tb.add_audio('ValSampleAudio', audio_signal, current_step,
