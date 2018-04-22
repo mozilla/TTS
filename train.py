@@ -154,6 +154,7 @@ def train(model, criterion, data_loader, optimizer, epoch):
             hiddens[1] = hiddens[1].detach()
             hiddens[2] = [hidden.detach() for hidden in hiddens[2]]
             hiddens[3] = hiddens[3].detach()
+            hiddens[4] = hiddens[4].detach()
         # concat predictions
         linear_output = torch.concat(linear_outputs, 1)
         mel_output = torch.concat(mel_output, 1)

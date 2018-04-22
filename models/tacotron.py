@@ -34,10 +34,11 @@ class Tacotron(nn.Module):
         # batch x time x dim
         encoder_output, hiddens[0] = self.encoder(inputs, hiddens[0])
         # batch x time x dim*r
-        mel_outputs, alignments, hiddens[1], hiddens[2] =\
+        mel_outputs, alignments, hiddens[1], hiddens[2], hiddens[4] =\
             self.decoder(encoder_output, mel_specs, 
                          hiddens[1],
-                         hiddens[2])
+                         hiddens[2],
+                         hiddens[4])
         # Reshape
         # batch x time x dim
         mel_outputs = mel_outputs.view(B, -1, self.mel_dim)
@@ -55,5 +56,6 @@ class Tacotron(nn.Module):
                        Variable(weight.new(B, 256).zero_()),
                        [Variable(weight.new(B, 256).zero_()), 
                             Variable(weight.new(B, 256).zero_())],
-                       Variable(weight.new(B, 2, self.mel_dim).zero_())]
+                       Variable(weight.new(B, 2, self.mel_dim).zero_()),
+                       Variable(weight.new(B, self.mel_dim * self.r).zero_())]
         return hiddens

@@ -235,7 +235,7 @@ class Decoder(nn.Module):
         # RNN_state -> |Linear| -> mel_spec
         self.proj_to_mel = nn.Linear(256, memory_dim * r)
 
-    def forward(self, inputs, memory=None, attention_rnn_hidden=None, decoder_rnn_hiddens=None):
+    def forward(self, inputs, memory=None, attention_rnn_hidden=None, decoder_rnn_hiddens=None, initial_memory=None):
         """
         Decoder forward step.
 
@@ -263,8 +263,9 @@ class Decoder(nn.Module):
                                                               self.memory_dim, self.r)
             T_decoder = memory.size(1)
         # go frame - 0 frames tarting the sequence
-        initial_memory = Variable(
-            inputs.data.new(B, self.memory_dim * self.r).zero_())
+        if initial_memory is None:
+            initial_memory = Variable(
+                inputs.data.new(B, self.memory_dim * self.r).zero_())
         # Init decoder states
         if attention_rnn_hidden is None:
             attention_rnn_hidden = Variable(
@@ -322,7 +323,7 @@ class Decoder(nn.Module):
         # Back to batch first
         alignments = torch.stack(alignments).transpose(0, 1)
         outputs = torch.stack(outputs).transpose(0, 1).contiguous()
-        return outputs, alignments, attention_rnn_hidden, decoder_rnn_hiddens
+        return outputs, alignments, attention_rnn_hidden, decoder_rnn_hiddens, memory_input
 
 
 def is_end_of_frames(output, alignment, eps=0.01):  # 0.2
