@@ -54,6 +54,12 @@ pickle.dump(c, open(tmp_path, "wb"))
 LOG_DIR = OUT_PATH
 tb = SummaryWriter(LOG_DIR)
 
+if c.freq_emphasis:
+    n_priority_freq = int(3000 / (c.sample_rate * 0.5) * c.num_freq)
+    print(" | > priority frequency range: {}".format(n_priority_freq))
+else:
+    print(" | > No frequency emphasis.")
+
     
 def signal_handler(signal, frame):
     """Ctrl+C handler to remove empty experiment folder"""
@@ -70,7 +76,6 @@ def train(model, criterion, data_loader, optimizer, epoch):
 
     print(" | > Epoch {}/{}".format(epoch, c.epochs))
     progbar = Progbar(len(data_loader.dataset) / c.batch_size)
-    n_priority_freq = int(3000 / (c.sample_rate * 0.5) * c.num_freq)
     for num_step, data in enumerate(data_loader):
         start_time = time.time()
 
@@ -119,10 +124,13 @@ def train(model, criterion, data_loader, optimizer, epoch):
                 model.forward(text_tbptt, mel_spec_tbptt, hiddens)
             # loss computation
             mel_loss = criterion(mel_output, mel_spec_tbptt, mel_lengths_tbptt)
-            linear_loss = 0.5 * criterion(linear_output, linear_spec_tbptt, mel_lengths_tbptt) \
-                + 0.5 * criterion(linear_output[:, :, :n_priority_freq],
-                                  linear_spec_tbptt[:, :, :n_priority_freq],
-                                  mel_lengths_tbptt)
+            if c.freq_emphasis:
+                linear_loss = 0.5 * criterion(linear_output, linear_spec_tbptt, mel_lengths_tbptt) \
+                    + 0.5 * criterion(linear_output[:, :, :n_priority_freq],
+                                      linear_spec_tbptt[:, :, :n_priority_freq],
+                                      mel_lengths_tbptt)
+            else:
+                linear_loss = criterion(linear_output, linear_spec_tbptt, mel_lengths_tbptt)
             loss = mel_loss + linear_loss
             # backpass and check the grad norm
             loss.backward()
@@ -216,7 +224,6 @@ def evaluate(model, criterion, data_loader, current_step):
     avg_mel_loss = 0
     print(" | > Validation")
     progbar = Progbar(len(data_loader.dataset) / c.batch_size)
-    n_priority_freq = int(3000 / (c.sample_rate * 0.5) * c.num_freq)
     for num_step, data in enumerate(data_loader):
         start_time = time.time()
         # setup input data
@@ -240,10 +247,13 @@ def evaluate(model, criterion, data_loader, current_step):
         mel_output, linear_output, alignments, _ = model.forward(text_input_var, mel_spec_var)
         # loss computation
         mel_loss = criterion(mel_output, mel_spec_var, mel_lengths_var)
-        linear_loss = 0.5 * criterion(linear_output, linear_spec_var, mel_lengths_var) \
-            + 0.5 * criterion(linear_output[:, :, :n_priority_freq],
-                              linear_spec_var[:, :, :n_priority_freq],
-                              mel_lengths_var)
+        if c.freq_emphasis:
+            linear_loss = 0.5 * criterion(linear_output, linear_spec_var, mel_lengths_var) \
+                + 0.5 * criterion(linear_output[:, :, :n_priority_freq],
+                                  linear_spec_var[:, :, :n_priority_freq],
+                                  mel_lengths_var)
+        else:
+            linear_loss = criterion(linear_output, linear_spec_var, mel_lengths_var)
         loss = mel_loss + linear_loss
         step_time = time.time() - start_time
         epoch_time += step_time

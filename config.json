@@ -17,6 +17,7 @@
   "eval_batch_size": 32,
   "tbptt_len": 450,
   "r": 5,
+  "freq_emphasis": false,
 
   "griffin_lim_iters": 60,
   "power": 1.2,
