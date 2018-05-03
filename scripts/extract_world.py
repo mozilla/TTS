@@ -12,11 +12,12 @@ from multiprocessing import Pool
 
 DATA_PATH = "/data/shared/KeithIto/LJSpeech-1.0/"
 OUT_PATH = "/data/shared/KeithIto/LJSpeech-1.0/world2/"
+FFT_SIZE = 1024
 
 def world_decode(x, fs):
     _f0_h, t_h = pw.harvest(x, fs)
-    f0_h = pw.stonemask(x, _f0_h, t_h, fs)
-    sp_h = pw.cheaptrick(x, f0_h, t_h, fs)
+    f0_h = pw.stonemask(x, _f0_h, t_h, fs, fft_size=FFT_SIZE)
+    sp_h = pw.cheaptrick(x, f0_h, t_h, fs, fft_size=FFT_SIZE)
     ap_h = pw.d4c(x, f0_h, t_h, fs)
     return f0_h, sp_h, ap_h
 
