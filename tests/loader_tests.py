@@ -5,6 +5,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 from TTS.utils.generic_utils import load_config
 from TTS.datasets.LJSpeech import LJSpeechDataset
+from TTS.datasets.LJSpeechWorld import LJSpeechWorldDataset
 from TTS.datasets.TWEB import TWEBDataset
 
 
@@ -275,3 +276,142 @@ class TestTWEBDataset(unittest.TestCase):
             # check batch conditions
             assert (mel_input * stop_target.unsqueeze(2)).sum() == 0
             assert (linear_input * stop_target.unsqueeze(2)).sum() == 0
+
+            
+class TestLJSpeechWorldDataset(unittest.TestCase):
+
+    def __init__(self, *args, **kwargs):
+        super(TestLJSpeechWorldDataset, self).__init__(*args, **kwargs)
+        self.max_loader_iter = 4
+
+    def test_loader(self):
+        dataset = LJSpeechWorldDataset(os.path.join(c.data_path_LJSpeech, 'metadata.csv'),
+                                  os.path.join(c.data_path_LJSpeech, 'world2'),
+                                  c.r,
+                                  c.sample_rate,
+                                  c.text_cleaner,
+                                  c.num_mels,
+                                  c.min_level_db,
+                                  c.frame_shift_ms,
+                                  c.frame_length_ms,
+                                  c.preemphasis,
+                                  c.ref_level_db,
+                                  c.num_freq,
+                                  c.power
+                                  )
+
+        dataloader = DataLoader(dataset, batch_size=2,
+                                shuffle=True, collate_fn=dataset.collate_fn,
+                                drop_last=True, num_workers=c.num_loader_workers)
+
+        for i, data in enumerate(dataloader):
+            if i == self.max_loader_iter:
+                break
+            text_input = data[0]
+            text_lengths = data[1]
+            sp = data[2]
+            ap = data[3]
+            f0 = data[4]
+            spec_lengths = data[5]
+            stop_target = data[6]
+            item_idx = data[7]
+
+            neg_values = text_input[text_input < 0]
+            check_count = len(neg_values)
+            assert check_count == 0, \
+                " !! Negative values in text_input: {}".format(check_count)
+            # TODO: more assertion here
+            assert sp.shape[0] == c.batch_size
+            assert ap.shape[0] == c.batch_size
+            assert sp.shape[1] == ap.shape[1] and ap.shape[1] == f0.shape[1]
+            assert sp.shape[2] == c.world_size
+            assert ap.shape[2] == c.world_size
+
+    def test_padding(self):
+        dataset = LJSpeechWorldDataset(os.path.join(c.data_path_LJSpeech, 'metadata.csv'),
+                                  os.path.join(c.data_path_LJSpeech, 'world2'),
+                                  1,
+                                  c.sample_rate,
+                                  c.text_cleaner,
+                                  c.num_mels,
+                                  c.min_level_db,
+                                  c.frame_shift_ms,
+                                  c.frame_length_ms,
+                                  c.preemphasis,
+                                  c.ref_level_db,
+                                  c.num_freq,
+                                  c.power
+                                  )
+
+        # Test for batch size 1
+        dataloader = DataLoader(dataset, batch_size=1,
+                                shuffle=False, collate_fn=dataset.collate_fn,
+                                drop_last=True, num_workers=c.num_loader_workers)
+
+        for i, data in enumerate(dataloader):
+            if i == self.max_loader_iter:
+                break
+            text_input = data[0]
+            text_lengths = data[1]
+            sp = data[2]
+            ap = data[3]
+            f0 = data[4]
+            spec_lengths = data[5]
+            stop_target = data[6]
+            item_idx = data[7]
+
+            # check the last time step to be zero padded
+            assert sp[0, -1].sum() == 0
+            assert sp[0, -2].sum() != 0
+            assert ap[0, -1].sum() == 0
+            assert ap[0, -2].sum() != 0
+            assert f0.sum() != 0
+            assert f0.squeeze()[-1] == 0
+            assert stop_target[0, -1] == 1
+            assert stop_target[0, -2] == 0
+            assert stop_target.sum() == 1
+            assert len(spec_lengths.shape) == 1
+            assert spec_lengths[0] == sp[0].shape[0]
+
+        # Test for batch size 2
+        dataloader = DataLoader(dataset, batch_size=2,
+                                shuffle=False, collate_fn=dataset.collate_fn,
+                                drop_last=False, num_workers=c.num_loader_workers)
+
+        for i, data in enumerate(dataloader):
+            if i == self.max_loader_iter:
+                break
+            text_input = data[0]
+            text_lengths = data[1]
+            sp = data[2]
+            ap = data[3]
+            f0 = data[4]
+            spec_lengths = data[5]
+            stop_target = data[6]
+            item_idx = data[7]
+
+            if spec_lengths[0] > spec_lengths[1]:
+                idx = 0
+            else:
+                idx = 1
+
+            # check the first item in the batch
+            assert sp[idx, -1].sum() == 0
+            assert sp[idx, -2].sum() != 0, sp
+            assert ap[idx, -1].sum() == 0
+            assert ap[idx, -2].sum() != 0
+            assert stop_target[idx, -1] == 1
+            assert stop_target[idx, -2] == 0
+            assert stop_target[idx].sum() == 1
+            assert len(spec_lengths.shape) == 1
+            assert spec_lengths[idx] == ap[idx].shape[0]
+
+            # check the second itme in the batch
+            assert ap[1-idx, -1].sum() == 0
+            assert sp[1-idx, -1].sum() == 0
+            assert stop_target[1-idx, -1] == 1
+            assert len(spec_lengths.shape) == 1
+
+            # check batch conditions
+            assert (ap * stop_target.unsqueeze(2)).sum() == 0
+            assert (sp * stop_target.unsqueeze(2)).sum() == 0
