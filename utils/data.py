@@ -9,9 +9,15 @@ def _pad_data(x, length):
                   constant_values=_pad)
 
 
-def prepare_data(inputs):
-    max_len = max((len(x) for x in inputs))
-    return np.stack([_pad_data(x, max_len) for x in inputs])
+def prepare_data(inputs, out_steps=None):
+    if out_steps is None:
+        max_len = max((len(x) for x in inputs))
+        return np.stack([_pad_data(x, max_len) for x in inputs])
+    else:
+        max_len = max((x.shape[0] for x in inputs)) + 1  # zero-frame
+        remainder = max_len % out_steps
+        pad_len = max_len + (out_steps - remainder) if remainder > 0 else max_len
+        return np.stack([_pad_data(x, pad_len) for x in inputs])
 
 
 def _pad_tensor(x, length):
