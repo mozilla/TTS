@@ -4,6 +4,7 @@ import pickle
 import copy
 import numpy as np
 from scipy import signal
+import scipy.io.wavfile as wavfile
 
 _mel_basis = None
 

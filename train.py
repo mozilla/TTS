@@ -17,9 +17,9 @@ from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
 
 from utils.generic_utils import (Progbar, remove_experiment_folder,
-                                 create_experiment_folder, save_checkpoint,
-                                 save_best_model, load_config, lr_decay,
-                                 count_parameters, check_update, get_commit_hash)
+                                create_experiment_folder, save_checkpoint,
+                                save_best_model, load_config, lr_decay,
+                                count_parameters, check_update, get_commit_hash)
 from utils.model import get_param_size
 from utils.visual import plot_alignment, plot_spectrogram
 from models.tacotron import Tacotron
@@ -304,8 +304,7 @@ def main(args):
     mod = importlib.import_module('datasets.{}'.format(c.dataset))
     Dataset = getattr(mod, c.dataset+"Dataset")
     # Setup the dataset
-    train_dataset = Dataset(os.path.join(c.data_path, c.meta_file_train),
-                            os.path.join(c.data_path, 'wavs'),
+    train_dataset = Dataset(os.path.join(c.data_path),
                             c.r,
                             c.sample_rate,
                             c.text_cleaner,
@@ -323,8 +322,7 @@ def main(args):
                               shuffle=False, collate_fn=train_dataset.collate_fn,
                               drop_last=True, num_workers=c.num_loader_workers,
                               pin_memory=True)
-    val_dataset = Dataset(os.path.join(c.data_path, c.meta_file_val),
-                          os.path.join(c.data_path, 'wavs'),
+    val_dataset = Dataset(os.path.join(c.data_path),
                           c.r,
                           c.sample_rate,
                           c.text_cleaner,
@@ -335,7 +333,8 @@ def main(args):
                           c.preemphasis,
                           c.ref_level_db,
                           c.num_freq,
-                          c.power
+                          c.power,
+                          is_for_val=True
                           )
     val_loader = DataLoader(val_dataset, batch_size=c.eval_batch_size,
                             shuffle=False, collate_fn=val_dataset.collate_fn,

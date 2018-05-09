@@ -6,15 +6,15 @@
   "frame_shift_ms": 12.5,
   "preemphasis": 0.97,
   "min_level_db": -100,
-  "ref_level_db": 20,
+  "ref_level_db": -18,
   "embedding_size": 256,
-  "text_cleaner": "english_cleaners",
+  "text_cleaner": "basic_cleaners",
 
   "epochs": 500,
   "lr": 0.001,
   "warmup_steps": 4000,
   "batch_size": 32,
-  "eval_batch_size": 32,
+  "eval_batch_size": 12,
   "tbptt_len": 450,
   "r": 5,
   "freq_emphasis": false,
@@ -22,14 +22,14 @@
   "griffin_lim_iters": 60,
   "power": 1.2,
 
-  "dataset": "TWEB",
+  "dataset": "FalaBrasil",
   "meta_file_train": "transcript_train.txt",
   "meta_file_val": "transcript_val.txt",
-  "data_path": "/data/shared/BibleSpeech/",
+  "data_path": "/home/reuben/Development/FalaBrasil/Constituicao16k",
   "min_seq_len": 0, 
   "num_loader_workers": 8,
 
   "checkpoint": true,
   "save_step": 908,
-  "output_path": "/data/shared/erogol_models/"
+  "output_path": "/home/reuben/Development/tts_falabrasil_models"
 }
