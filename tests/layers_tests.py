@@ -24,10 +24,13 @@ class CBHGTests(unittest.TestCase):
         dummy_input = T.rand(4, 8, 128)
 
         print(layer)
-        output = layer(dummy_input)
+        output, hidden_gru = layer(dummy_input)
         assert output.shape[0] == 4
         assert output.shape[1] == 8
         assert output.shape[2] == 256
+        assert hidden_gru.shape[0] == 2, hidden_gru.shape
+        assert hidden_gru.shape[1] == 4
+        assert hidden_gru.shape[2] == 128
 
 
 class DecoderTests(unittest.TestCase):
@@ -37,7 +40,8 @@ class DecoderTests(unittest.TestCase):
         dummy_input = T.rand(4, 8, 256)
         dummy_memory = T.rand(4, 2, 80)
 
-        output, alignment, stop_tokens = layer(dummy_input, dummy_memory)
+        output, alignment, stop_tokens, attention_rnn_hidden,\
+               decoder_rnn_hiddens, memory_input, stopnet_rnn_hidden = layer(dummy_input, dummy_memory)
 
         assert output.shape[0] == 4
         assert output.shape[1] == 1, "size not {}".format(output.shape[1])
@@ -54,7 +58,7 @@ class EncoderTests(unittest.TestCase):
         dummy_input = T.rand(4, 8, 128)
 
         print(layer)
-        output = layer(dummy_input)
+        output, hidden_gru = layer(dummy_input, None)
         print(output.shape)
         assert output.shape[0] == 4
         assert output.shape[1] == 8

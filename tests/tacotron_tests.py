@@ -47,7 +47,7 @@ class TacotronTrainTest(unittest.TestCase):
             count += 1
         optimizer = optim.Adam(model.parameters(), lr=c.lr)
         for i in range(5):
-            mel_out, linear_out, align, stop_tokens = model.forward(input, mel_spec)
+            mel_out, linear_out, align, stop_tokens, hiddens = model.forward(input, mel_spec)
             assert stop_tokens.data.max() <= 1.0
             assert stop_tokens.data.min() >= 0.0
             optimizer.zero_grad()

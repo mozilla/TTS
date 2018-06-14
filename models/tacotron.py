@@ -21,17 +21,38 @@ class Tacotron(nn.Module):
         self.postnet = CBHG(mel_dim, K=8, projections=[256, mel_dim])
         self.last_linear = nn.Linear(mel_dim * 2, linear_dim)
 
-    def forward(self, characters, mel_specs=None):
+    def forward(self, characters, mel_specs=None, hiddens=None):
         B = characters.size(0)
+        if hiddens is None:
+            hiddens = self.init_rnn_hiddens(B)
+        hiddens[0] = hiddens[0].transpose(0, 1).contiguous()
+        hiddens[3] = hiddens[3].transpose(0, 1).contiguous()
         inputs = self.embedding(characters)
         # batch x time x dim
-        encoder_outputs = self.encoder(inputs)
+        encoder_outputs, hiddens[0] = self.encoder(inputs, hiddens[0])
         # batch x time x dim*r
-        mel_outputs, alignments, stop_tokens = self.decoder(
-            encoder_outputs, mel_specs)
+        mel_outputs, alignments, stop_tokens, hiddens[1], hiddens[2], hiddens[4], hiddens[5] =\
+            self.decoder(encoder_outputs, mel_specs,
+                         hiddens[1],
+                         hiddens[2],
+                         hiddens[4])
         # Reshape
         # batch x time x dim
         mel_outputs = mel_outputs.view(B, -1, self.mel_dim)
-        linear_outputs = self.postnet(mel_outputs)
+        linear_outputs, hiddens[3] = self.postnet(mel_outputs, hiddens[3])
         linear_outputs = self.last_linear(linear_outputs)
-        return mel_outputs, linear_outputs, alignments, stop_tokens
+        # respahe hiddens
+        hiddens[0] = hiddens[0].transpose(0, 1).contiguous()
+        hiddens[3] = hiddens[3].transpose(0, 1).contiguous()
+        return mel_outputs, linear_outputs, alignments, stop_tokens, hiddens
+
+    def init_rnn_hiddens(self, B):
+        weight = next(self.parameters()).data
+        hiddens = [weight.new(B, 2, 128).zero_(),
+                       weight.new(B, 256).zero_(),
+                       [weight.new(B, 256).zero_(), 
+                            weight.new(B, 256).zero_()],
+                       weight.new(B, 2, self.mel_dim).zero_(),
+                       weight.new(B, self.mel_dim * self.r).zero_(),
+                       weight.new(B, self.r * self.mel_dim).zero_()]
+        return hiddens

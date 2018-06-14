@@ -13,9 +13,7 @@ import numpy as np
 
 import torch.nn as nn
 from torch import optim
-from torch import onnx
 from torch.utils.data import DataLoader
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 from tensorboardX import SummaryWriter
 
 from utils.generic_utils import (Progbar, remove_experiment_folder,
@@ -27,6 +25,7 @@ from utils.visual import plot_alignment, plot_spectrogram
 from datasets.LJSpeech import LJSpeechDataset
 from models.tacotron import Tacotron
 from layers.losses import L1LossMasked
+from datasets.utils import TBPTT
 
 torch.manual_seed(1)
 use_cuda = torch.cuda.is_available()
@@ -78,10 +77,6 @@ def train(model, criterion, criterion_st, data_loader, optimizer, optimizer_st, 
         mel_input = data[3]
         mel_lengths = data[4]
         stop_targets = data[5]
-        
-        # set stop targets view, we predict a single stop token per r frames prediction
-        stop_targets = stop_targets.view(text_input.shape[0], stop_targets.size(1) // c.r, -1)
-        stop_targets = (stop_targets.sum(2) > 0.0).unsqueeze(2).float()
 
         current_step = num_iter + args.restore_step + \
             epoch * len(data_loader) + 1
@@ -106,61 +101,94 @@ def train(model, criterion, criterion_st, data_loader, optimizer, optimizer_st, 
             mel_lengths = mel_lengths.cuda()
             linear_input = linear_input.cuda()
             stop_targets = stop_targets.cuda()
-            
-        # forward pass
-        mel_output, linear_output, alignments, stop_tokens =\
-            model.forward(text_input, mel_input)
-
-        # loss computation
-        stop_loss = criterion_st(stop_tokens, stop_targets)
-        mel_loss = criterion(mel_output, mel_input, mel_lengths)
-        linear_loss = 0.5 * criterion(linear_output, linear_input, mel_lengths) \
-            + 0.5 * criterion(linear_output[:, :, :n_priority_freq],
-                              linear_input[:, :, :n_priority_freq],
-                              mel_lengths)
-        loss = mel_loss + linear_loss
-
-        # backpass and check the grad norm for spec losses
-        loss.backward(retain_graph=True)
-        grad_norm, skip_flag = check_update(model, 0.5, 100)
-        if skip_flag:
-            optimizer.zero_grad()
-            print(" | > Iteration skipped!!")
-            continue
-        optimizer.step()
         
-        # backpass and check the grad norm for stop loss
-        stop_loss.backward()
-        grad_norm_st, skip_flag = check_update(model.module.decoder.stopnet, 0.5, 100)
-        if skip_flag:
-            optimizer_st.zero_grad()
-            print(" | > Iteration skipped fro stopnet!!")
-            continue
-        optimizer_st.step()
+        #TBPTT
+        hiddens = model.module.init_rnn_hiddens(c.batch_size)
+        tbptt = TBPTT(text_input, mel_input, linear_input, 
+                      mel_lengths, c.tbptt_len)
+        linear_outputs = []
+        mel_outputs = []
+        alignmentss = []
+        for tbptt_step, tbptt_data in enumerate(tbptt):
+            # fetch data
+            text_tbptt, mel_tbptt, linear_tbptt, stop_target_tbptt, len_tbptt= tbptt_data
+            
+            # set stop targets view, we predict a single stop token per r frames prediction
+            stop_target_tbptt = stop_target_tbptt.view(text_input.shape[0], stop_target_tbptt.size(1) // c.r, -1)
+            stop_target_tbptt = (stop_target_tbptt.sum(2) > 0.0).unsqueeze(2).float()
 
+            # forward pass
+            mel_output, linear_output, alignments, stop_tokens =\
+                model.forward(text_tbptt, mel_tbptt, hiddens)
+
+            # loss computation
+            stop_loss = criterion_st(stop_tokens, stop_target_tbptt)
+            mel_loss = criterion(mel_output, mel_input, mel_lengths)
+            linear_loss = 0.5 * criterion(linear_output, linear_tbptt, mel_lengths) \
+                + 0.5 * criterion(linear_output[:, :, :n_priority_freq],
+                                linear_tbptt[:, :, :n_priority_freq],
+                                mel_lengths)
+            loss = mel_loss + linear_loss
+
+            # backpass and check the grad norm for spec losses
+            loss.backward(retain_graph=True)
+            grad_norm, skip_flag = check_update(model, 0.5, 100)
+            if skip_flag:
+                optimizer.zero_grad()
+                print(" | > Iteration skipped!!")
+                continue
+            optimizer.step()
+        
+            # backpass and check the grad norm for stop loss
+            stop_loss.backward()
+            grad_norm_st, skip_flag = check_update(model.module.decoder.stopnet, 0.5, 100)
+            if skip_flag:
+                optimizer_st.zero_grad()
+                print(" | > Iteration skipped fro stopnet!!")
+                continue
+            optimizer_st.step()
+
+            # update
+            progbar.update(num_iter+1, values=[('total_loss', loss.item()),
+                                            ('linear_loss', linear_loss.item()),
+                                            ('mel_loss', mel_loss.item()),
+                                            ('stop_loss', stop_loss.item()),
+                                            ('grad_norm', grad_norm.item()),
+                                            ('grad_norm_st', grad_norm_st.item())])
+            avg_linear_loss += linear_loss.item()
+            avg_mel_loss += mel_loss.item()
+            avg_stop_loss += stop_loss.item()
+
+            # Plot TBPTT Stats
+            tb.add_scalar('TrainIterLoss/TotalLoss', loss.item(), current_step)
+            tb.add_scalar('TrainIterLoss/LinearLoss', linear_loss.item(),
+                        current_step)
+            tb.add_scalar('TrainIterLoss/MelLoss', mel_loss.item(), current_step)
+            tb.add_scalar('Params/GradNorm', grad_norm, current_step)
+            tb.add_scalar('Params/GradNormSt', grad_norm_st, current_step)
+
+            # aggregate predictions
+            linear_outputs.append(linear_output.detach())
+            mel_outputs.append(mel_output.detach())
+            alignmentss.append(alignments.detach())
+
+            # detach hidden states
+            hiddens[0] = hiddens[0].detach()
+            hiddens[1] = hiddens[1].detach()
+            hiddens[2] = [hidden.detach() for hidden in hiddens[2]]
+            hiddens[3] = hiddens[3].detach()
+            hiddens[4] = hiddens[4].detach()
+       
+        # concat predictions
+        linear_output = torch.cat(linear_outputs, 1)
+        mel_output = torch.cat(mel_outputs, 1)
+        alignments = torch.cat(alignmentss, 1)
+
+        # Plot step stats
         step_time = time.time() - start_time
         epoch_time += step_time
-
-        # update
-        progbar.update(num_iter+1, values=[('total_loss', loss.item()),
-                                           ('linear_loss', linear_loss.item()),
-                                           ('mel_loss', mel_loss.item()),
-                                           ('stop_loss', stop_loss.item()),
-                                           ('grad_norm', grad_norm.item()),
-                                           ('grad_norm_st', grad_norm_st.item())])
-        avg_linear_loss += linear_loss.item()
-        avg_mel_loss += mel_loss.item()
-        avg_stop_loss += stop_loss.item()
-
-        # Plot Training Iter Stats
-        tb.add_scalar('TrainIterLoss/TotalLoss', loss.item(), current_step)
-        tb.add_scalar('TrainIterLoss/LinearLoss', linear_loss.item(),
-                      current_step)
-        tb.add_scalar('TrainIterLoss/MelLoss', mel_loss.item(), current_step)
         tb.add_scalar('Params/LearningRate', optimizer.param_groups[0]['lr'],
                       current_step)
-        tb.add_scalar('Params/GradNorm', grad_norm, current_step)
-        tb.add_scalar('Params/GradNormSt', grad_norm_st, current_step)
         tb.add_scalar('Time/StepTime', step_time, current_step)
 
         if current_step % c.save_step == 0:
@@ -172,12 +200,10 @@ def train(model, criterion, criterion_st, data_loader, optimizer, optimizer_st, 
             # Diagnostic visualizations
             const_spec = linear_output[0].data.cpu().numpy()
             gt_spec = linear_input[0].data.cpu().numpy()
-
             const_spec = plot_spectrogram(const_spec, data_loader.dataset.ap)
             gt_spec = plot_spectrogram(gt_spec, data_loader.dataset.ap)
             tb.add_image('Visual/Reconstruction', const_spec, current_step)
             tb.add_image('Visual/GroundTruth', gt_spec, current_step)
-
             align_img = alignments[0].data.cpu().numpy()
             align_img = plot_alignment(align_img)
             tb.add_image('Visual/Alignment', align_img, current_step)
@@ -196,9 +222,9 @@ def train(model, criterion, criterion_st, data_loader, optimizer, optimizer_st, 
                 # print(audio_signal.min())
                 pass
 
-    avg_linear_loss /= (num_iter + 1)
-    avg_mel_loss /= (num_iter + 1)
-    avg_stop_loss /= (num_iter + 1)
+    avg_linear_loss /= (num_step * tbptt_step + 1)
+    avg_mel_loss /= (num_step * tbptt_step + 1)
+    avg_stop_loss /= (num_step * tbptt_step + 1)
     avg_total_loss = avg_mel_loss + avg_linear_loss + avg_stop_loss
 
     # Plot Training Epoch Stats

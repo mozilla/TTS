@@ -12,7 +12,7 @@ class ModelSavingTests(unittest.TestCase):
     def save_checkpoint_test(self):
         # create a dummy model
         model = Prenet(128, out_features=[256, 128])
-        model = T.nn.DataParallel(layer)
+        model = T.nn.DataParallel(model)
 
         # save the model
         save_checkpoint(model, None, 100,
