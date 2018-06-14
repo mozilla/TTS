@@ -178,6 +178,7 @@ def train(model, criterion, criterion_st, data_loader, optimizer, optimizer_st, 
             hiddens[2] = [hidden.detach() for hidden in hiddens[2]]
             hiddens[3] = hiddens[3].detach()
             hiddens[4] = hiddens[4].detach()
+            hiddens[5] = hiddens[5].detach()
        
         # concat predictions
         linear_output = torch.cat(linear_outputs, 1)
