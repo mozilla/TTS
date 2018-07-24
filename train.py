@@ -340,6 +340,7 @@ def main(args):
                                     min_seq_len=c.min_seq_len
                                     )
 
+    print(" > Number of train loader processes : {}".format(c.num_loader_workers))
     train_loader = DataLoader(train_dataset, batch_size=c.batch_size,
                               shuffle=False, collate_fn=train_dataset.collate_fn,
                               drop_last=False, num_workers=c.num_loader_workers,
@@ -355,7 +356,7 @@ def main(args):
 
         val_loader = DataLoader(val_dataset, batch_size=c.eval_batch_size,
                                 shuffle=False, collate_fn=val_dataset.collate_fn,
-                                drop_last=False, num_workers=4,
+                                drop_last=False, num_workers=1,
                                 pin_memory=True)
     else:
         val_loader = None
@@ -402,13 +403,38 @@ def main(args):
     if 'best_loss' not in locals():
         best_loss = float('inf')
 
-    for epoch in range(0, c.epochs):
-        train_loss, current_step = train(model, criterion, criterion_st, train_loader, optimizer, optimizer_st, ap, epoch)
-        val_loss = evaluate(model, criterion, criterion_st, val_loader, ap, current_step)
-        print(" | > Train Loss: {:.5f}   Validation Loss: {:.5f}".format(train_loss, val_loss))
-        best_loss = save_best_model(model, optimizer, val_loss,
-                                    best_loss, OUT_PATH,
-                                    current_step, epoch)
+    num_processes = [1, 2, 4, 8, 16, 32, 64]
+    avg_times = []
+    for num_proc in num_processes:
+        train_dataset = LJSpeechDataset(os.path.join(c.data_path, 'metadata_train.csv'),
+                                    os.path.join(c.data_path, 'wavs'),
+                                    c.r,
+                                    c.text_cleaner,
+                                    ap = ap,
+                                    min_seq_len=c.min_seq_len
+                                    )
+
+        print(" > Number of train loader processes : {}".format(num_proc))
+        train_loader = DataLoader(train_dataset, batch_size=c.batch_size,
+                                shuffle=False, collate_fn=train_dataset.collate_fn,
+                                drop_last=False, num_workers=num_proc,
+                                pin_memory=True)
+        for epoch in range(0, 2):
+            epoch_time = time.time()
+            count = 0
+            a = train_loader.__iter__()
+            for i in range(250):
+                t = time.time()
+                data = next(a)
+                t_step = time.time() - t
+                print(" > {} - time: {}".format(i, t_step), flush=True)
+                count += 1
+            epoch_time = time.time() - epoch_time
+            avg_time = epoch_time / (count + 1)
+            avg_times.append(avg_time)
+            print("{} processes AVG  time: {}".format(num_proc, avg_time), flush=True) 
+        print(num_processes)
+        print(avg_times)
 
 
 if __name__ == '__main__':
