@@ -23,6 +23,7 @@ class LJSpeechDataset(Dataset):
         self.cleaners = text_cleaner
         self.min_seq_len = min_seq_len
         self.ap = ap
+        self.items = [None] * len(self.frames)
         print(" > Reading LJSpeech from - {}".format(root_dir))
         print(" | > Number of instances : {}".format(len(self.frames)))
         self._sort_frames()
@@ -59,13 +60,17 @@ class LJSpeechDataset(Dataset):
         return len(self.frames)
 
     def __getitem__(self, idx):
-        wav_name = os.path.join(self.root_dir,
-                                self.frames[idx][0]) + '.wav'
-        text = self.frames[idx][1]
-        text = np.asarray(text_to_sequence(
-            text, [self.cleaners]), dtype=np.int32)
-        wav = np.asarray(self.load_wav(wav_name)[0], dtype=np.float32)
-        sample = {'text': text, 'wav': wav, 'item_idx': self.frames[idx][0]}
+        if self.items[idx] is None:
+            wav_name = os.path.join(self.root_dir,
+                                    self.frames[idx][0]) + '.wav'
+            text = self.frames[idx][1]
+            text = np.asarray(text_to_sequence(
+                text, [self.cleaners]), dtype=np.int32)
+            wav = np.asarray(self.load_wav(wav_name)[0], dtype=np.float32)
+            sample = {'text': text, 'wav': wav, 'item_idx': self.frames[idx][0]}
+            self.items[idx] = sample
+        else:
+            sample = self.items[idx]
         return sample
 
     def collate_fn(self, batch):

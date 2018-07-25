@@ -419,7 +419,7 @@ def main(args):
                                 shuffle=False, collate_fn=train_dataset.collate_fn,
                                 drop_last=False, num_workers=num_proc,
                                 pin_memory=True)
-        for epoch in range(0, 2):
+        for epoch in range(0, 1):
             epoch_time = time.time()
             count = 0
             a = train_loader.__iter__()
