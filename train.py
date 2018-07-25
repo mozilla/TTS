@@ -23,7 +23,7 @@ from utils.generic_utils import (synthesis, remove_experiment_folder,
                                  save_best_model, load_config, lr_decay,
                                  count_parameters, check_update, get_commit_hash)
 from utils.visual import plot_alignment, plot_spectrogram
-from datasets.LJSpeech import LJSpeechDataset
+from datasets.LJSpeechCached import LJSpeechDataset
 from models.tacotron import Tacotron
 from layers.losses import L1LossMasked
 from utils.audio import AudioProcessor
@@ -40,7 +40,7 @@ def train(model, criterion, criterion_st, data_loader, optimizer, optimizer_st, 
     avg_linear_loss = 0
     avg_mel_loss = 0
     avg_stop_loss = 0
-    print(" | > Epoch {}/{}".format(epoch, c.epochs))
+    print(" | > Epoch {}/{}".format(epoch, c.epochs), flush=Truew)
     n_priority_freq = int(3000 / (c.sample_rate * 0.5) * c.num_freq)
     for num_iter, data in enumerate(data_loader):
         start_time = time.time()
@@ -333,7 +333,7 @@ def main(args):
 
     # Setup the dataset
     train_dataset = LJSpeechDataset(os.path.join(c.data_path, 'metadata_train.csv'),
-                                    os.path.join(c.data_path, 'wavs'),
+                                    os.path.join(c.data_path),
                                     c.r,
                                     c.text_cleaner,
                                     ap = ap,
@@ -348,7 +348,7 @@ def main(args):
 
     if c.run_eval:
         val_dataset = LJSpeechDataset(os.path.join(c.data_path, 'metadata_val.csv'),
-                                    os.path.join(c.data_path, 'wavs'),
+                                    os.path.join(c.data_path),
                                     c.r,
                                     c.text_cleaner,
                                     ap = ap
@@ -397,9 +397,6 @@ def main(args):
     num_params = count_parameters(model)
     print(" | > Model has {} parameters".format(num_params))
 
-    if not os.path.exists(CHECKPOINT_PATH):
-        os.mkdir(CHECKPOINT_PATH)
-
     if 'best_loss' not in locals():
         best_loss = float('inf')
 
@@ -407,7 +404,7 @@ def main(args):
     avg_times = []
     for num_proc in num_processes:
         train_dataset = LJSpeechDataset(os.path.join(c.data_path, 'metadata_train.csv'),
-                                    os.path.join(c.data_path, 'wavs'),
+                                    os.path.join(c.data_path),
                                     c.r,
                                     c.text_cleaner,
                                     ap = ap,
@@ -419,11 +416,11 @@ def main(args):
                                 shuffle=False, collate_fn=train_dataset.collate_fn,
                                 drop_last=False, num_workers=num_proc,
                                 pin_memory=True)
-        for epoch in range(0, 1):
+        for epoch in range(0, 2):
             epoch_time = time.time()
             count = 0
             a = train_loader.__iter__()
-            for i in range(250):
+            for i in range(100):
                 t = time.time()
                 data = next(a)
                 t_step = time.time() - t
@@ -450,24 +447,10 @@ if __name__ == '__main__':
     # setup output paths and read configs
     c = load_config(args.config_path)
     _ = os.path.dirname(os.path.realpath(__file__))
-    OUT_PATH = os.path.join(_, c.output_path)
-    OUT_PATH = create_experiment_folder(OUT_PATH, c.model_name, args.debug)
-    CHECKPOINT_PATH = os.path.join(OUT_PATH, 'checkpoints')
-    shutil.copyfile(args.config_path, os.path.join(OUT_PATH, 'config.json'))
+    # OUT_PATH = os.path.join(_, c.output_path)
+    # shutil.copyfile(args.config_path, os.path.join(OUT_PATH, 'config.json'))
 
     # setup tensorboard
-    LOG_DIR = OUT_PATH
-    tb = SummaryWriter(LOG_DIR)
-
-    try:
-        main(args)
-    except KeyboardInterrupt:
-        remove_experiment_folder(OUT_PATH)
-        try:
-            sys.exit(0)
-        except SystemExit:
-            os._exit(0)
-    except Exception:
-        remove_experiment_folder(OUT_PATH)
-        traceback.print_exc()
-        sys.exit(1)
+    # LOG_DIR = OUT_PATH
+    # tb = SummaryWriter(LOG_DIR)
+    main(args)

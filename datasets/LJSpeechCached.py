@@ -65,12 +65,12 @@ class LJSpeechDataset(Dataset):
 
     def __getitem__(self, idx):
         if self.items[idx] is None:
-            wav_name = os.path.join(self.root_dir,
+            wav_name = os.path.join(self.root_dir, 'wavs',
                                     self.frames[idx][0]) + '.wav'
-            mel_name = os.path.join(self.root_dir,
-                                    self.frames[idx][0]) + '.mel'
-            linear_name = os.path.join(self.root_dir,
-                                    self.frames[idx][0]) + '.linear'
+            mel_name = os.path.join(self.root_dir, 'loader_data',
+                                    self.frames[idx][0]) + '.mel.npy'
+            linear_name = os.path.join(self.root_dir, 'loader_data',
+                                    self.frames[idx][0]) + '.linear.npy'
             text = self.frames[idx][1]
             text = np.asarray(text_to_sequence(
                 text, [self.cleaners]), dtype=np.int32)
