@@ -29,7 +29,7 @@ Checkout [here](https://mycroft.ai/blog/available-voices/#the-human-voice-is-the
 Currently TTS provides data loaders for
 - [LJ Speech](https://keithito.com/LJ-Speech-Dataset/)
 
-## Training and Finetunning
+## Training and Finetuning
 Split ```metadata.csv``` into train and validation subsets respectively ```metadata_train.csv``` and ```metadata_val.csv```.
 
 ```
