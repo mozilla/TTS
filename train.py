@@ -44,10 +44,9 @@ def train(model, criterion, criterion_st, data_loader, optimizer, optimizer_st,
         # setup input data
         text_input = data[0]
         text_lengths = data[1]
-        linear_input = data[2]
-        mel_input = data[3]
-        mel_lengths = data[4]
-        stop_targets = data[5]
+        mel_input = data[2]
+        mel_lengths = data[3]
+        stop_targets = data[4]
 
         # set stop targets view, we predict a single stop token per r frames prediction
         stop_targets = stop_targets.view(text_input.shape[0],
@@ -68,27 +67,21 @@ def train(model, criterion, criterion_st, data_loader, optimizer, optimizer_st,
             text_lengths = text_lengths.cuda()
             mel_input = mel_input.cuda()
             mel_lengths = mel_lengths.cuda()
-            linear_input = linear_input.cuda()
             stop_targets = stop_targets.cuda()
 
         # compute mask for padding
         mask = sequence_mask(text_lengths)
 
         # forward pass
-        mel_output, linear_output, alignments, stop_tokens = torch.nn.parallel.data_parallel(
+        mel_output, alignments, stop_tokens = torch.nn.parallel.data_parallel(
             model, (text_input, mel_input, mask))
 
         # loss computation
         stop_loss = criterion_st(stop_tokens, stop_targets)
         mel_loss = criterion(mel_output, mel_input, mel_lengths)
-        linear_loss = 0.5 * criterion(linear_output, linear_input, mel_lengths)\
-            + 0.5 * criterion(linear_output[:, :, :n_priority_freq],
-                              linear_input[:, :, :n_priority_freq],
-                              mel_lengths)
-        loss = mel_loss + linear_loss
 
         # backpass and check the grad norm for spec losses
-        loss.backward(retain_graph=True)
+        mel_loss.backward(retain_graph=True)
         for group in optimizer.param_groups:
             for param in group['params']:
                 param.data = param.data.add(-c.wd * group['lr'], param.data)
@@ -116,23 +109,19 @@ def train(model, criterion, criterion_st, data_loader, optimizer, optimizer_st,
 
         if current_step % c.print_step == 0:
             print(
-                " | | > Step:{}/{}  GlobalStep:{}  TotalLoss:{:.5f}  LinearLoss:{:.5f}  "
+                " | | > Step:{}/{}  GlobalStep:{} "
                 "MelLoss:{:.5f}  StopLoss:{:.5f}  GradNorm:{:.5f}  "
                 "GradNormST:{:.5f}  StepTime:{:.2f}".format(
-                    num_iter, batch_n_iter, current_step, loss.item(),
-                    linear_loss.item(), mel_loss.item(), stop_loss.item(),
+                    num_iter, batch_n_iter, current_step,
+                    mel_loss.item(), stop_loss.item(),
                     grad_norm, grad_norm_st, step_time),
                 flush=True)
 
-        avg_linear_loss += linear_loss.item()
         avg_mel_loss += mel_loss.item()
         avg_stop_loss += stop_loss.item()
         avg_step_time += step_time
 
         # Plot Training Iter Stats
-        tb.add_scalar('TrainIterLoss/TotalLoss', loss.item(), current_step)
-        tb.add_scalar('TrainIterLoss/LinearLoss', linear_loss.item(),
-                      current_step)
         tb.add_scalar('TrainIterLoss/MelLoss', mel_loss.item(), current_step)
         tb.add_scalar('Params/LearningRate', optimizer.param_groups[0]['lr'],
                       current_step)
@@ -144,12 +133,12 @@ def train(model, criterion, criterion_st, data_loader, optimizer, optimizer_st,
             if c.checkpoint:
                 # save model
                 save_checkpoint(model, optimizer, optimizer_st,
-                                linear_loss.item(), OUT_PATH, current_step,
+                                mel_loss.item(), OUT_PATH, current_step,
                                 epoch)
 
             # Diagnostic visualizations
-            const_spec = linear_output[0].data.cpu().numpy()
-            gt_spec = linear_input[0].data.cpu().numpy()
+            const_spec = mel_output[0].data.cpu().numpy()
+            gt_spec = mel_input[0].data.cpu().numpy()
 
             const_spec = plot_spectrogram(const_spec, ap)
             gt_spec = plot_spectrogram(gt_spec, ap)
@@ -161,7 +150,7 @@ def train(model, criterion, criterion_st, data_loader, optimizer, optimizer_st,
             tb.add_figure('Visual/Alignment', align_img, current_step)
 
             # Sample audio
-            audio_signal = linear_output[0].data.cpu().numpy()
+            audio_signal = mel_output[0].data.cpu().numpy()
             ap.griffin_lim_iters = 60
             audio_signal = ap.inv_spectrogram(audio_signal.T)
             try:
@@ -173,30 +162,26 @@ def train(model, criterion, criterion_st, data_loader, optimizer, optimizer_st,
             except:
                 pass
 
-    avg_linear_loss /= (num_iter + 1)
     avg_mel_loss /= (num_iter + 1)
     avg_stop_loss /= (num_iter + 1)
-    avg_total_loss = avg_mel_loss + avg_linear_loss + avg_stop_loss
     avg_step_time /= (num_iter + 1)
 
     # print epoch stats
     print(
-        " | | > EPOCH END -- GlobalStep:{}  AvgTotalLoss:{:.5f}  "
-        "AvgLinearLoss:{:.5f}  AvgMelLoss:{:.5f}  "
+        " | | > EPOCH END -- GlobalStep:{} "
+        "AvgMelLoss:{:.5f}  "
         "AvgStopLoss:{:.5f}  EpochTime:{:.2f}  "
-        "AvgStepTime:{:.2f}".format(current_step, avg_total_loss,
-                                    avg_linear_loss, avg_mel_loss,
+        "AvgStepTime:{:.2f}".format(current_step,
+                                    avg_mel_loss,
                                     avg_stop_loss, epoch_time, avg_step_time),
         flush=True)
 
     # Plot Training Epoch Stats
-    tb.add_scalar('TrainEpochLoss/TotalLoss', avg_total_loss, current_step)
-    tb.add_scalar('TrainEpochLoss/LinearLoss', avg_linear_loss, current_step)
     tb.add_scalar('TrainEpochLoss/MelLoss', avg_mel_loss, current_step)
     tb.add_scalar('TrainEpochLoss/StopLoss', avg_stop_loss, current_step)
     tb.add_scalar('Time/EpochTime', epoch_time, epoch)
     epoch_time = 0
-    return avg_linear_loss, current_step
+    return avg_mel_loss, current_step
 
 
 def evaluate(model, criterion, criterion_st, data_loader, ap, current_step):
@@ -221,10 +206,9 @@ def evaluate(model, criterion, criterion_st, data_loader, ap, current_step):
                 # setup input data
                 text_input = data[0]
                 text_lengths = data[1]
-                linear_input = data[2]
-                mel_input = data[3]
-                mel_lengths = data[4]
-                stop_targets = data[5]
+                mel_input = data[2]
+                mel_lengths = data[3]
+                stop_targets = data[4]
 
                 # set stop targets view, we predict a single stop token per r frames prediction
                 stop_targets = stop_targets.view(text_input.shape[0],
@@ -237,42 +221,34 @@ def evaluate(model, criterion, criterion_st, data_loader, ap, current_step):
                     text_input = text_input.cuda()
                     mel_input = mel_input.cuda()
                     mel_lengths = mel_lengths.cuda()
-                    linear_input = linear_input.cuda()
                     stop_targets = stop_targets.cuda()
 
                 # forward pass
-                mel_output, linear_output, alignments, stop_tokens =\
+                mel_output, alignments, stop_tokens =\
                     model.forward(text_input, mel_input)
 
                 # loss computation
                 stop_loss = criterion_st(stop_tokens, stop_targets)
                 mel_loss = criterion(mel_output, mel_input, mel_lengths)
-                linear_loss = 0.5 * criterion(linear_output, linear_input, mel_lengths) \
-                    + 0.5 * criterion(linear_output[:, :, :n_priority_freq],
-                                    linear_input[:, :, :n_priority_freq],
-                                    mel_lengths)
-                loss = mel_loss + linear_loss + stop_loss
 
                 step_time = time.time() - start_time
                 epoch_time += step_time
 
                 if num_iter % c.print_step == 0:
                     print(
-                        " | | > TotalLoss: {:.5f}   LinearLoss: {:.5f}   MelLoss:{:.5f}  "
+                        " | | > TotalLoss: {:.5f}   MelLoss:{:.5f}  "
                         "StopLoss: {:.5f}  ".format(loss.item(),
-                                                    linear_loss.item(),
                                                     mel_loss.item(),
                                                     stop_loss.item()),
                         flush=True)
 
-                avg_linear_loss += linear_loss.item()
                 avg_mel_loss += mel_loss.item()
                 avg_stop_loss += stop_loss.item()
 
             # Diagnostic visualizations
             idx = np.random.randint(mel_input.shape[0])
-            const_spec = linear_output[idx].data.cpu().numpy()
-            gt_spec = linear_input[idx].data.cpu().numpy()
+            const_spec = mel_output[idx].data.cpu().numpy()
+            gt_spec = mel_input[idx].data.cpu().numpy()
             align_img = alignments[idx].data.cpu().numpy()
 
             const_spec = plot_spectrogram(const_spec, ap)
@@ -285,7 +261,7 @@ def evaluate(model, criterion, criterion_st, data_loader, ap, current_step):
                           current_step)
 
             # Sample audio
-            audio_signal = linear_output[idx].data.cpu().numpy()
+            audio_signal = mel_output[idx].data.cpu().numpy()
             ap.griffin_lim_iters = 60
             audio_signal = ap.inv_spectrogram(audio_signal.T)
             try:
@@ -299,16 +275,10 @@ def evaluate(model, criterion, criterion_st, data_loader, ap, current_step):
                 pass
 
             # compute average losses
-            avg_linear_loss /= (num_iter + 1)
             avg_mel_loss /= (num_iter + 1)
             avg_stop_loss /= (num_iter + 1)
-            avg_total_loss = avg_mel_loss + avg_linear_loss + avg_stop_loss
 
             # Plot Learning Stats
-            tb.add_scalar('ValEpochLoss/TotalLoss', avg_total_loss,
-                          current_step)
-            tb.add_scalar('ValEpochLoss/LinearLoss', avg_linear_loss,
-                          current_step)
             tb.add_scalar('ValEpochLoss/MelLoss', avg_mel_loss, current_step)
             tb.add_scalar('ValEpochLoss/Stop_loss', avg_stop_loss,
                           current_step)
@@ -339,7 +309,7 @@ def evaluate(model, criterion, criterion_st, data_loader, ap, current_step):
         except:
             print(" !! Error as creating Test Sentence -", idx)
             pass
-    return avg_linear_loss
+    return avg_mel_loss
 
 
 def main(args):
@@ -429,7 +399,7 @@ def main(args):
             criterion.cuda()
             criterion_st.cuda()
 
-    scheduler = AnnealLR(optimizer, warmup_steps=c.warmup_steps, last_epoch=args.restore_step)
+    scheduler = AnnealLR(optimizer, warmup_steps=c.warmup_steps)
     num_params = count_parameters(model)
     print(" | > Model has {} parameters".format(num_params), flush=True)
 

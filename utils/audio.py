@@ -134,3 +134,18 @@ class AudioProcessor(object):
             if np.max(wav[x:x + window_length]) < threshold:
                 return x + hop_length
         return len(wav)
+
+    def load_wav(self, filename, encode=False):
+        x = librosa.load(filename, sr=self.sample_rate)[0]
+        if encode == True:
+            x = encode_16bits(x)
+        return x
+
+    def encode_16bits(self, x):
+        return np.clip(x * 2 ** 15, -2 ** 15, 2 ** 15 - 1).astype(np.int16)
+    
+    def quantize(self, x):
+        return (x + 1.) * (2 ** self.bits - 1) / 2
+
+    def dequantize(self, x):
+        return 2 * x / (2 ** self.bits - 1) - 1

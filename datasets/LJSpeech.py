@@ -104,7 +104,6 @@ class MyDataset(Dataset):
             text_lenghts = np.array([len(x) for x in text])
             max_text_len = np.max(text_lenghts)
 
-            linear = [self.ap.spectrogram(w).astype('float32') for w in wav]
             mel = [self.ap.melspectrogram(w).astype('float32') for w in wav]
             mel_lengths = [m.shape[1] + 1 for m in mel]  # +1 for zero-frame
 
@@ -122,24 +121,20 @@ class MyDataset(Dataset):
             wav = prepare_data(wav)
 
             # PAD features with largest length + a zero frame
-            linear = prepare_tensor(linear, self.outputs_per_step)
             mel = prepare_tensor(mel, self.outputs_per_step)
-            assert mel.shape[2] == linear.shape[2]
             timesteps = mel.shape[2]
 
             # B x T x D
-            linear = linear.transpose(0, 2, 1)
             mel = mel.transpose(0, 2, 1)
 
             # convert things to pytorch
             text_lenghts = torch.LongTensor(text_lenghts)
             text = torch.LongTensor(text)
-            linear = torch.FloatTensor(linear)
             mel = torch.FloatTensor(mel)
             mel_lengths = torch.LongTensor(mel_lengths)
             stop_targets = torch.FloatTensor(stop_targets)
 
-            return text, text_lenghts, linear, mel, mel_lengths, stop_targets, item_idxs
+            return text, text_lenghts, mel, mel_lengths, stop_targets, item_idxs
 
         raise TypeError(("batch must contain tensors, numbers, dicts or lists;\
                          found {}".format(type(batch[0]))))
