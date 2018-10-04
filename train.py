@@ -149,19 +149,6 @@ def train(model, criterion, criterion_st, data_loader, optimizer, optimizer_st,
             align_img = plot_alignment(align_img)
             tb.add_figure('Visual/Alignment', align_img, current_step)
 
-            # Sample audio
-            audio_signal = mel_output[0].data.cpu().numpy()
-            ap.griffin_lim_iters = 60
-            audio_signal = ap.inv_spectrogram(audio_signal.T)
-            try:
-                tb.add_audio(
-                    'SampleAudio',
-                    audio_signal,
-                    current_step,
-                    sample_rate=c.sample_rate)
-            except:
-                pass
-
     avg_mel_loss /= (num_iter + 1)
     avg_stop_loss /= (num_iter + 1)
     avg_step_time /= (num_iter + 1)
@@ -236,9 +223,8 @@ def evaluate(model, criterion, criterion_st, data_loader, ap, current_step):
 
                 if num_iter % c.print_step == 0:
                     print(
-                        " | | > TotalLoss: {:.5f}   MelLoss:{:.5f}  "
-                        "StopLoss: {:.5f}  ".format(loss.item(),
-                                                    mel_loss.item(),
+                        " | | > MelLoss:{:.5f}  "
+                        "StopLoss: {:.5f}  ".format(mel_loss.item(),
                                                     stop_loss.item()),
                         flush=True)
 
@@ -260,20 +246,6 @@ def evaluate(model, criterion, criterion_st, data_loader, ap, current_step):
             tb.add_figure('ValVisual/ValidationAlignment', align_img,
                           current_step)
 
-            # Sample audio
-            audio_signal = mel_output[idx].data.cpu().numpy()
-            ap.griffin_lim_iters = 60
-            audio_signal = ap.inv_spectrogram(audio_signal.T)
-            try:
-                tb.add_audio(
-                    'ValSampleAudio',
-                    audio_signal,
-                    current_step,
-                    sample_rate=c.sample_rate)
-            except:
-                # sometimes audio signal is out of boundaries
-                pass
-
             # compute average losses
             avg_mel_loss /= (num_iter + 1)
             avg_stop_loss /= (num_iter + 1)
@@ -287,23 +259,14 @@ def evaluate(model, criterion, criterion_st, data_loader, ap, current_step):
     ap.griffin_lim_iters = 60
     for idx, test_sentence in enumerate(test_sentences):
         try:
-            wav, linear_spec, alignments = synthesis(model, ap, test_sentence,
+            mel_spec, alignments = synthesis(model, ap, test_sentence,
                                                      use_cuda, c.text_cleaner)
-
-            file_path = os.path.join(AUDIO_PATH, str(current_step))
-            os.makedirs(file_path, exist_ok=True)
-            file_path = os.path.join(file_path,
-                                     "TestSentence_{}.wav".format(idx))
-            ap.save_wav(wav, file_path)
-
             wav_name = 'TestSentences/{}'.format(idx)
-            tb.add_audio(
-                wav_name, wav, current_step, sample_rate=c.sample_rate)
             align_img = alignments[0].data.cpu().numpy()
-            linear_spec = plot_spectrogram(linear_spec, ap)
+            mel_spec = plot_spectrogram(mel_spec, ap)
             align_img = plot_alignment(align_img)
-            tb.add_figure('TestSentences/{}_Spectrogram'.format(idx),
-                          linear_spec, current_step)
+            tb.add_figure('TestSentences/{}_MelSpectrogram'.format(idx),
+                          mel_spec, current_step)
             tb.add_figure('TestSentences/{}_Alignment'.format(idx), align_img,
                           current_step)
         except:
@@ -375,13 +338,17 @@ def main(args):
 
     if args.restore_path:
         checkpoint = torch.load(args.restore_path)
-        model.load_state_dict(checkpoint['model'])
+        model_dict = model.state_dict()
+        # 1. filter out unnecessary keys
+        checkpoint['model'] = {k: v for k, v in checkpoint['model'].items() if k in model_dict}
+        # 2. overwrite entries in the existing state dict
+        model_dict.update(checkpoint['model']) 
+        # 3. load the new state dict
+        model.load_state_dict(model_dict)
         if use_cuda:
             model = model.cuda()
             criterion.cuda()
             criterion_st.cuda()
-        optimizer.load_state_dict(checkpoint['optimizer'])
-        # optimizer_st.load_state_dict(checkpoint['optimizer_st'])
         for state in optimizer.state.values():
             for k, v in state.items():
                 if torch.is_tensor(v):

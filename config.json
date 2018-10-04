@@ -1,33 +1,33 @@
 {
-    "model_name": "TTS-sigmoid",
-    "model_description": "Net outputting Sigmoid unit",
+    "model_name": "TTS-mel_spec",
+    "model_description": "Predict only mel spectrogram",
     "audio_processor": "audio",
     "num_mels": 80,
     "num_freq": 1025,
     "sample_rate": 22000,
     "frame_length_ms": 50,
     "frame_shift_ms": 12.5,
-    "preemphasis": 0.97,
+    "preemphasis": 0.0,
     "min_level_db": -100,
     "ref_level_db": 20,
     "embedding_size": 256,
     "text_cleaner": "english_cleaners",
-
-    "num_loader_workers": 4,
-
+    
     "epochs": 1000,
-    "lr": 0.002,
+    "lr": 0.0015,
     "warmup_steps": 4000,
     "lr_decay": 0.5,
     "decay_step": 100000,
     "batch_size": 32,
-    "eval_batch_size":-1,
+    "eval_batch_size":32,
     "r": 5,
-    "wd": 0.0001,
-
     "griffin_lim_iters": 60,
     "power": 1.5,
-
+    "bdw": 0.05,
+    "wd": 0.000001,
+  
+    "num_loader_workers": 4,
+  
     "checkpoint": true,
     "save_step": 25000,
     "print_step": 10,
