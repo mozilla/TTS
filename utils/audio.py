@@ -10,21 +10,15 @@ _mel_basis = None
 
 
 class AudioProcessor(object):
-    def __init__(
-        self,
-        bits=None,
-        sample_rate=None,
-        num_mels=None,
-        min_level_db=None,
-        frame_shift_ms=None,
-        frame_length_ms=None,
-        ref_level_db=None,
-        num_freq=None,
-        power=None,
-        preemphasis=None,
-        griffin_lim_iters=None,
-        **kwargs
-    ):
+    def __init__(self,
+                 sample_rate,
+                 num_mels,
+                 min_level_db,
+                 frame_shift_ms,
+                 frame_length_ms,
+                 ref_level_db,
+                 num_freq,
+                 power):
 
         print(" > Setting up Audio Processor...")
         
@@ -59,7 +53,10 @@ class AudioProcessor(object):
 
     def _build_mel_basis(self,):
         n_fft = (self.num_freq - 1) * 2
-        return librosa.filters.mel(self.sample_rate, n_fft, n_mels=self.num_mels)
+        print(" > Min - Max set ")
+        # fmin fmax from Tacotron2 paper
+        return librosa.filters.mel(
+            self.sample_rate, n_fft, n_mels=self.num_mels, fmin=125, fmax=7600)
 
     def _normalize(self, S):
         return np.clip((S - self.min_level_db) / -self.min_level_db, 0, 1)
@@ -79,8 +76,7 @@ class AudioProcessor(object):
         return n_fft, hop_length, win_length
 
     def _amp_to_db(self, x):
-        min_level = np.exp(self.min_level_db / 20 * np.log(10))
-        return 20 * np.log10(np.maximum(min_level, x))
+        return 20 * np.log10(np.maximum(1e-5, x))
 
     def _db_to_amp(self, x):
         return np.power(10.0, x * 0.05)
@@ -96,11 +92,8 @@ class AudioProcessor(object):
         return signal.lfilter([1], [1, -self.preemphasis], x)
 
     def spectrogram(self, y):
-        if self.preemphasis != 0:
-            D = self._stft(self.apply_preemphasis(y))
-        else:
-            D = self._stft(y)
-        S = self._amp_to_db(np.abs(D)) - self.ref_level_db
+        D = self._stft(y)
+        S = self._amp_to_db(np.abs(D))
         return self._normalize(S)
 
     def inv_spectrogram(self, spectrogram):
@@ -113,21 +106,9 @@ class AudioProcessor(object):
         else:
             return self._griffin_lim(S ** self.power)
 
-    def _griffin_lim(self, S):
-        angles = np.exp(2j * np.pi * np.random.rand(*S.shape))
-        S_complex = np.abs(S).astype(np.complex)
-        y = self._istft(S_complex * angles)
-        for i in range(self.griffin_lim_iters):
-            angles = np.exp(1j * np.angle(self._stft(y)))
-            y = self._istft(S_complex * angles)
-        return y
-
     def melspectrogram(self, y):
-        if self.preemphasis != 0:
-            D = self._stft(self.apply_preemphasis(y))
-        else:
-            D = self._stft(y)
-        S = self._amp_to_db(self._linear_to_mel(np.abs(D))) - self.ref_level_db
+        D = self._stft(y)
+        S = self._amp_to_db(self._linear_to_mel(np.abs(D))) 
         return self._normalize(S)
 
     def _stft(self, y):
@@ -171,8 +152,7 @@ class AudioProcessor(object):
     #     return np.sign(signal) * magnitude
 
     def load_wav(self, filename, encode=False):
-        x, sr = librosa.load(filename, sr=self.sample_rate)
-        assert self.sample_rate == sr
+        x = librosa.load(filename, sr=self.sample_rate)[0]
         return x
 
     def encode_16bits(self, x):
