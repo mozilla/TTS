@@ -11,17 +11,16 @@ _mel_basis = None
 
 class AudioProcessor(object):
     def __init__(self,
-                 sample_rate,
-                 num_mels,
-                 min_level_db,
-                 frame_shift_ms,
-                 frame_length_ms,
-                 ref_level_db,
-                 num_freq,
-                 power):
+                 bits=None,
+                 sample_rate=None,
+                 num_mels=None,
+                 min_level_db=None,
+                 frame_shift_ms=None,
+                 frame_length_ms=None,
+                 ref_level_db=None,
+                 num_freq=None):
 
         print(" > Setting up Audio Processor...")
-        
         self.bits = bits
         self.sample_rate = sample_rate
         self.num_mels = num_mels
@@ -30,20 +29,13 @@ class AudioProcessor(object):
         self.frame_length_ms = frame_length_ms
         self.ref_level_db = ref_level_db
         self.num_freq = num_freq
-        self.power = power
-        self.preemphasis = preemphasis
-        self.griffin_lim_iters = griffin_lim_iters
         self.n_fft, self.hop_length, self.win_length = self._stft_parameters()
-        if preemphasis == 0:
-            print(" | > Preemphasis is deactive.")
-        print(" | > Audio Processor attributes.")
-        members = vars(self)
-        pprint(members)
 
     def save_wav(self, wav, path):
         wav_norm = wav * (32767 / max(0.01, np.max(np.abs(wav))))
         # librosa.output.write_wav(path, wav_norm.astype(np.int16), self.sample_rate)
-        scipy.io.wavfile.write(path, self.sample_rate, wav_norm.astype(np.int16))
+        scipy.io.wavfile.write(path, self.sample_rate,
+                               wav_norm.astype(np.int16))
 
     def _linear_to_mel(self, spectrogram):
         global _mel_basis
@@ -53,7 +45,6 @@ class AudioProcessor(object):
 
     def _build_mel_basis(self,):
         n_fft = (self.num_freq - 1) * 2
-        print(" > Min - Max set ")
         # fmin fmax from Tacotron2 paper
         return librosa.filters.mel(
             self.sample_rate, n_fft, n_mels=self.num_mels, fmin=125, fmax=7600)
@@ -108,7 +99,7 @@ class AudioProcessor(object):
 
     def melspectrogram(self, y):
         D = self._stft(y)
-        S = self._amp_to_db(self._linear_to_mel(np.abs(D))) 
+        S = self._amp_to_db(self._linear_to_mel(np.abs(D)))
         return self._normalize(S)
 
     def _stft(self, y):
@@ -116,11 +107,11 @@ class AudioProcessor(object):
             y=y,
             n_fft=self.n_fft,
             hop_length=self.hop_length,
-            win_length=self.win_length,
-        )
+            win_length=self.win_length)
 
     def _istft(self, y):
-        return librosa.istft(y, hop_length=self.hop_length, win_length=self.win_length)
+        return librosa.istft(
+            y, hop_length=self.hop_length, win_length=self.win_length)
 
     def find_endpoint(self, wav, threshold_db=-40, min_silence_sec=0.8):
         window_length = int(self.sample_rate * min_silence_sec)
@@ -156,10 +147,10 @@ class AudioProcessor(object):
         return x
 
     def encode_16bits(self, x):
-        return np.clip(x * 2 ** 15, -2 ** 15, 2 ** 15 - 1).astype(np.int16)
+        return np.clip(x * 2**15, -2**15, 2**15 - 1).astype(np.int16)
 
     def quantize(self, x):
-        return (x + 1.) * (2 ** self.bits - 1) / 2
+        return (x + 1.) * (2**self.bits - 1) / 2
 
     def dequantize(self, x):
-        return 2 * x / (2 ** self.bits - 1) - 1
+        return 2 * x / (2**self.bits - 1) - 1
