@@ -349,7 +349,7 @@ class Decoder(nn.Module):
         memory_input = initial_memory
         while True:
             if t > 0:
-                if greedy:
+                if greedy and memory is None:
                     memory_input = outputs[-1]
                 else:
                     memory_input = memory[t - 1]

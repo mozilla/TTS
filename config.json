@@ -1,6 +1,7 @@
 {
     "model_name": "TTS-mel_spec",
     "model_description": "Predict only mel spectrogram",
+
     "audio_processor": "audio",
     "num_mels": 80,
     "num_freq": 1025,
@@ -10,9 +11,8 @@
     "preemphasis": 0.0,
     "min_level_db": -100,
     "ref_level_db": 20,
-    "embedding_size": 256,
+    "embedding_size": 256,    
     "text_cleaner": "english_cleaners",
-    
     "epochs": 1000,
     "lr": 0.0015,
     "warmup_steps": 4000,
