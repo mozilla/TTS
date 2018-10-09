@@ -410,6 +410,12 @@ if __name__ == '__main__':
         type=bool,
         default=False,
         help='do not ask for git has before run.')
+    parser.add_argument(
+        '--data_path',
+        type=str,
+        help='dataset path.',
+        default=''
+    )
     args = parser.parse_args()
 
     # setup output paths and read configs
@@ -421,6 +427,9 @@ if __name__ == '__main__':
     AUDIO_PATH = os.path.join(OUT_PATH, 'test_audios')
     os.makedirs(AUDIO_PATH, exist_ok=True)
     shutil.copyfile(args.config_path, os.path.join(OUT_PATH, 'config.json'))
+
+    if args.data_path != '':
+        c.data_path = args.data_path
 
     # setup tensorboard
     LOG_DIR = OUT_PATH
