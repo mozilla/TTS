@@ -11,26 +11,27 @@ from utils.data import (prepare_data, pad_per_step, prepare_tensor,
 
 
 class MyDataset(Dataset):
+    # TODO: Not finished yet.
     def __init__(self,
                  root_dir,
                  csv_file,
                  outputs_per_step,
                  text_cleaner,
                  ap,
+                 preprocessor,
                  batch_group_size=0,                 
-                 min_seq_len=0):
+                 min_seq_len=0,
+                 ):
         self.root_dir = root_dir
         self.batch_group_size = batch_group_size
         self.wav_dir = os.path.join(root_dir, 'wavs')
         self.feat_dir = os.path.join(root_dir, 'loader_data')
         self.csv_dir = os.path.join(root_dir, csv_file)
-        with open(self.csv_dir, "r", encoding="utf8") as f:
-            self.frames = [line.split('|') for line in f]
+        self.items = preprocessor(root_path, meta_file)
         self.outputs_per_step = outputs_per_step
         self.sample_rate = ap.sample_rate
         self.cleaners = text_cleaner
         self.min_seq_len = min_seq_len
-        self.items = [None] * len(self.frames)
         print(" > Reading LJSpeech from - {}".format(root_dir))
         print(" | > Number of instances : {}".format(len(self.frames)))
         self._sort_frames()
@@ -80,28 +81,24 @@ class MyDataset(Dataset):
         return len(self.frames)
 
     def __getitem__(self, idx):
-        if self.items[idx] is None:
-            wav_name = os.path.join(self.wav_dir, self.frames[idx][0]) + '.wav'
-            mel_name = os.path.join(self.feat_dir,
-                                    self.frames[idx][0]) + '.mel.npy'
-            linear_name = os.path.join(self.feat_dir,
-                                       self.frames[idx][0]) + '.linear.npy'
-            text = self.frames[idx][1]
-            text = np.asarray(
-                text_to_sequence(text, [self.cleaners]), dtype=np.int32)
-            wav = np.asarray(self.load_wav(wav_name)[0], dtype=np.float32)
-            mel = self.load_np(mel_name)
-            linear = self.load_np(linear_name)
-            sample = {
-                'text': text,
-                'wav': wav,
-                'item_idx': self.frames[idx][0],
-                'mel': mel,
-                'linear': linear
-            }
-            self.items[idx] = sample
-        else:
-            sample = self.items[idx]
+        wav_name = os.path.join(self.wav_dir, self.frames[idx][0]) + '.wav'
+        mel_name = os.path.join(self.feat_dir,
+                                self.frames[idx][0]) + '_mel.npy'
+        # linear_name = os.path.join(self.feat_dir,
+        #                            self.frames[idx][0]) + '_linear.npy'
+        text = self.frames[idx][1]
+        text = np.asarray(
+            text_to_sequence(text, [self.cleaners]), dtype=np.int32)
+        wav = np.asarray(self.load_wav(wav_name)[0], dtype=np.float32)
+        mel = self.load_np(mel_name)
+        # linear = self.load_np(linear_name)
+        sample = {
+            'text': text,
+            'wav': wav,
+            'item_idx': self.frames[idx][0],
+            'mel': mel,
+            # 'linear': linear
+        }
         return sample
 
     def collate_fn(self, batch):
@@ -121,7 +118,7 @@ class MyDataset(Dataset):
             item_idxs = [d['item_idx'] for d in batch]
             text = [d['text'] for d in batch]
             mel = [d['mel'] for d in batch]
-            linear = [d['linear'] for d in batch]
+            # linear = [d['linear'] for d in batch]
 
             text_lenghts = np.array([len(x) for x in text])
             max_text_len = np.max(text_lenghts)
@@ -141,25 +138,23 @@ class MyDataset(Dataset):
             wav = prepare_data(wav)
 
             # PAD features with largest length + a zero frame
-            linear = prepare_tensor(linear, self.outputs_per_step)
+            # linear = prepare_tensor(linear, self.outputs_per_step)
             mel = prepare_tensor(mel, self.outputs_per_step)
-            assert mel.shape[2] == linear.shape[2]
             timesteps = mel.shape[2]
 
             # B x T x D
-            linear = linear.transpose(0, 2, 1)
+            # linear = linear.transpose(0, 2, 1)
             mel = mel.transpose(0, 2, 1)
 
             # convert things to pytorch
             text_lenghts = torch.LongTensor(text_lenghts)
             text = torch.LongTensor(text)
-            linear = torch.FloatTensor(linear)
+            # linear = torch.FloatTensor(linear)
             mel = torch.FloatTensor(mel)
             mel_lengths = torch.LongTensor(mel_lengths)
             stop_targets = torch.FloatTensor(stop_targets)
 
-            return text, text_lenghts, linear, mel, mel_lengths, stop_targets, item_idxs[
-                0]
+            return text, text_lenghts, mel, mel_lengths, stop_targets, item_idxs
 
         raise TypeError(("batch must contain tensors, numbers, dicts or lists;\
                          found {}".format(type(batch[0]))))

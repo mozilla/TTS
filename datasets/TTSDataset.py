@@ -11,29 +11,27 @@ from utils.data import (prepare_data, pad_per_step, prepare_tensor,
                         prepare_stop_target)
 
 
-class MyDataset(Dataset):
+class TTSDataset(Dataset):
     def __init__(self,
-                 root_dir,
-                 csv_file,
+                 root_path,
+                 meta_file,
                  outputs_per_step,
                  text_cleaner,
                  ap,
+                 preprocessor,
                  batch_group_size=0,
                  min_seq_len=0):
-        self.root_dir = root_dir
+        self.root_path = root_path
         self.batch_group_size = batch_group_size
-        self.wav_dir = os.path.join(root_dir, 'wavs')
-        self.csv_dir = os.path.join(root_dir, csv_file)
-        with open(self.csv_dir, "r", encoding="utf8") as f:
-            self.frames = [line.split('|') for line in f]
+        self.items = preprocessor(root_path, meta_file)
         self.outputs_per_step = outputs_per_step
         self.sample_rate = ap.sample_rate
         self.cleaners = text_cleaner
         self.min_seq_len = min_seq_len
         self.ap = ap
-        print(" > Reading LJSpeech from - {}".format(root_dir))
-        print(" | > Number of instances : {}".format(len(self.frames)))
-        self.sort_frames()
+        print(" > Reading LJSpeech from - {}".format(root_path))
+        print(" | > Number of instances : {}".format(len(self.items)))
+        self.sort_items()
 
     def load_wav(self, filename):
         try:
@@ -42,46 +40,45 @@ class MyDataset(Dataset):
         except RuntimeError as e:
             print(" !! Cannot read file : {}".format(filename))
 
-    def sort_frames(self):
+    def sort_items(self):
         r"""Sort text sequences in ascending order"""
-        lengths = np.array([len(ins[1]) for ins in self.frames])
+        lengths = np.array([len(ins[0]) for ins in self.items])
 
         print(" | > Max length sequence {}".format(np.max(lengths)))
         print(" | > Min length sequence {}".format(np.min(lengths)))
         print(" | > Avg length sequence {}".format(np.mean(lengths)))
 
         idxs = np.argsort(lengths)
-        new_frames = []
+        new_items = []
         ignored = []
         for i, idx in enumerate(idxs):
             length = lengths[idx]
             if length < self.min_seq_len:
                 ignored.append(idx)
             else:
-                new_frames.append(self.frames[idx])
+                new_items.append(self.items[idx])
         print(" | > {} instances are ignored by min_seq_len ({})".format(
             len(ignored), self.min_seq_len))
         # shuffle batch groups
         if self.batch_group_size > 0:
             print(" | > Batch group shuffling is active.")
-            for i in range(len(new_frames) // self.batch_group_size):
+            for i in range(len(new_items) // self.batch_group_size):
                 offset = i * self.batch_group_size
                 end_offset = offset + self.batch_group_size
-                temp_frames = new_frames[offset : end_offset]
-                random.shuffle(temp_frames)
-                new_frames[offset : end_offset] = temp_frames
-        self.frames = new_frames
+                temp_items = new_items[offset : end_offset]
+                random.shuffle(temp_items)
+                new_items[offset : end_offset] = temp_items
+        self.items = new_items
 
     def __len__(self):
-        return len(self.frames)
+        return len(self.items)
 
     def __getitem__(self, idx):
-        wav_name = os.path.join(self.wav_dir, self.frames[idx][0]) + '.wav'
-        text = self.frames[idx][1]
+        text, wav_file = self.items[idx]
         text = np.asarray(
             text_to_sequence(text, [self.cleaners]), dtype=np.int32)
-        wav = np.asarray(self.load_wav(wav_name), dtype=np.float32)
-        sample = {'text': text, 'wav': wav, 'item_idx': self.frames[idx][0]}
+        wav = np.asarray(self.load_wav(wav_file), dtype=np.float32)
+        sample = {'text': text, 'wav': wav, 'item_idx': self.items[idx][0]}
         return sample
 
     def collate_fn(self, batch):

@@ -21,6 +21,7 @@ from utils.visual import plot_alignment, plot_spectrogram
 from models.tacotron import Tacotron
 from layers.losses import L1LossMasked
 from utils.audio import AudioProcessor
+from datasets.TTSDataset import TTSDataset
 
 torch.manual_seed(1)
 # torch.set_num_threads(4)
@@ -276,8 +277,8 @@ def evaluate(model, criterion, criterion_st, data_loader, ap, current_step):
 
 
 def main(args):
-    dataset = importlib.import_module('datasets.' + c.dataset)
-    Dataset = getattr(dataset, 'MyDataset')
+    preprocessor = importlib.import_module('datasets.preprocess')
+    preprocessor = getattr(preprocessor, c.dataset.lower())
     audio = importlib.import_module('utils.' + c.audio_processor)
     AudioProcessor = getattr(audio, 'AudioProcessor')
 
@@ -293,11 +294,12 @@ def main(args):
         preemphasis=c.preemphasis)
 
     # Setup the dataset
-    train_dataset = Dataset(
+    train_dataset = TTSDataset(
         c.data_path,
         c.meta_file_train,
         c.r,
         c.text_cleaner,
+        preprocessor=preprocessor,
         ap=ap,
         batch_group_size=8*c.batch_size,
         min_seq_len=c.min_seq_len)
@@ -312,8 +314,8 @@ def main(args):
         pin_memory=True)
 
     if c.run_eval:
-        val_dataset = Dataset(
-            c.data_path, c.meta_file_val, c.r, c.text_cleaner, ap=ap, batch_group_size=0)
+        val_dataset = TTSDataset(
+            c.data_path, c.meta_file_val, c.r, c.text_cleaner, preprocessor=preprocessor, ap=ap, batch_group_size=0)
 
         val_loader = DataLoader(
             val_dataset,

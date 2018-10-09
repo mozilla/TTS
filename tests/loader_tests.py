@@ -5,7 +5,8 @@ import numpy as np
 from torch.utils.data import DataLoader
 from TTS.utils.generic_utils import load_config
 from TTS.utils.audio import AudioProcessor
-from TTS.datasets import LJSpeech, Kusal
+from TTS.datasets import TTSDataset
+from TTS.datasets.preprocess import ljspeech
 
 file_path = os.path.dirname(os.path.realpath(__file__))
 c = load_config(os.path.join(file_path, 'test_config.json'))
@@ -13,9 +14,9 @@ ok_kusal = os.path.exists(c.data_path_Kusal)
 ok_ljspeech = os.path.exists(c.data_path_LJSpeech)
 
 
-class TestLJSpeechDataset(unittest.TestCase):
+class TestTTSDataset(unittest.TestCase):
     def __init__(self, *args, **kwargs):
-        super(TestLJSpeechDataset, self).__init__(*args, **kwargs)
+        super(TestTTSDataset, self).__init__(*args, **kwargs)
         self.max_loader_iter = 4
         self.ap = AudioProcessor(
             sample_rate=c.sample_rate,
@@ -30,11 +31,12 @@ class TestLJSpeechDataset(unittest.TestCase):
 
     def test_loader(self):
         if ok_ljspeech:
-            dataset = LJSpeech.MyDataset(
+            dataset = TTSDataset.TTSDataset(
                 os.path.join(c.data_path_LJSpeech),
                 os.path.join(c.data_path_LJSpeech, 'metadata.csv'),
                 c.r,
                 c.text_cleaner,
+                preprocessor = ljspeech,
                 ap=self.ap,
                 min_seq_len=c.min_seq_len)
 
@@ -51,28 +53,27 @@ class TestLJSpeechDataset(unittest.TestCase):
                     break
                 text_input = data[0]
                 text_lengths = data[1]
-                linear_input = data[2]
-                mel_input = data[3]
-                mel_lengths = data[4]
-                stop_target = data[5]
-                item_idx = data[6]
+                mel_input = data[2]
+                mel_lengths = data[3]
+                stop_target = data[4]
+                item_idx = data[5]
 
                 neg_values = text_input[text_input < 0]
                 check_count = len(neg_values)
                 assert check_count == 0, \
                     " !! Negative values in text_input: {}".format(check_count)
                 # TODO: more assertion here
-                assert linear_input.shape[0] == c.batch_size
                 assert mel_input.shape[0] == c.batch_size
                 assert mel_input.shape[2] == c.num_mels
 
     def test_batch_group_shuffle(self):
         if ok_ljspeech:
-            dataset = LJSpeech.MyDataset(
+            dataset = TTSDataset.TTSDataset(
                 os.path.join(c.data_path_LJSpeech),
                 os.path.join(c.data_path_LJSpeech, 'metadata.csv'),
                 c.r,
                 c.text_cleaner,
+                preprocessor=ljspeech,
                 ap=self.ap,
                 batch_group_size=16,
                 min_seq_len=c.min_seq_len)
@@ -85,37 +86,36 @@ class TestLJSpeechDataset(unittest.TestCase):
                 drop_last=True,
                 num_workers=c.num_loader_workers)
 
-            frames = dataset.frames
+            frames = dataset.items
             for i, data in enumerate(dataloader):
                 if i == self.max_loader_iter:
                     break
                 text_input = data[0]
                 text_lengths = data[1]
-                linear_input = data[2]
-                mel_input = data[3]
-                mel_lengths = data[4]
-                stop_target = data[5]
-                item_idx = data[6]
+                mel_input = data[2]
+                mel_lengths = data[3]
+                stop_target = data[4]
+                item_idx = data[5]
 
                 neg_values = text_input[text_input < 0]
                 check_count = len(neg_values)
                 assert check_count == 0, \
                     " !! Negative values in text_input: {}".format(check_count)
                 # TODO: more assertion here
-                assert linear_input.shape[0] == c.batch_size
                 assert mel_input.shape[0] == c.batch_size
                 assert mel_input.shape[2] == c.num_mels
-            dataloader.dataset.sort_frames()
-            assert frames[0] != dataloader.dataset.frames[0]
+            dataloader.dataset.sort_items()
+            assert frames[0] != dataloader.dataset.items[0]
 
 
     def test_padding(self):
         if ok_ljspeech:
-            dataset = LJSpeech.MyDataset(
+            dataset = TTSDataset.TTSDataset(
                 os.path.join(c.data_path_LJSpeech),
                 os.path.join(c.data_path_LJSpeech, 'metadata.csv'),
                 1,
                 c.text_cleaner,
+                preprocessor=ljspeech,
                 ap=self.ap,
                 min_seq_len=c.min_seq_len)
 
@@ -133,17 +133,15 @@ class TestLJSpeechDataset(unittest.TestCase):
                     break
                 text_input = data[0]
                 text_lengths = data[1]
-                linear_input = data[2]
-                mel_input = data[3]
-                mel_lengths = data[4]
-                stop_target = data[5]
-                item_idx = data[6]
+                # linear_input = data[2]
+                mel_input = data[2]
+                mel_lengths = data[3]
+                stop_target = data[4]
+                item_idx = data[5]
 
                 # check the last time step to be zero padded
                 assert mel_input[0, -1].sum() == 0
                 assert mel_input[0, -2].sum() != 0
-                assert linear_input[0, -1].sum() == 0
-                assert linear_input[0, -2].sum() != 0
                 assert stop_target[0, -1] == 1
                 assert stop_target[0, -2] == 0
                 assert stop_target.sum() == 1
@@ -164,11 +162,10 @@ class TestLJSpeechDataset(unittest.TestCase):
                     break
                 text_input = data[0]
                 text_lengths = data[1]
-                linear_input = data[2]
-                mel_input = data[3]
-                mel_lengths = data[4]
-                stop_target = data[5]
-                item_idx = data[6]
+                mel_input = data[2]
+                mel_lengths = data[3]
+                stop_target = data[4]
+                item_idx = data[5]
 
                 if mel_lengths[0] > mel_lengths[1]:
                     idx = 0
@@ -178,8 +175,6 @@ class TestLJSpeechDataset(unittest.TestCase):
                 # check the first item in the batch
                 assert mel_input[idx, -1].sum() == 0
                 assert mel_input[idx, -2].sum() != 0, mel_input
-                assert linear_input[idx, -1].sum() == 0
-                assert linear_input[idx, -2].sum() != 0
                 assert stop_target[idx, -1] == 1
                 assert stop_target[idx, -2] == 0
                 assert stop_target[idx].sum() == 1
@@ -188,13 +183,11 @@ class TestLJSpeechDataset(unittest.TestCase):
 
                 # check the second itme in the batch
                 assert mel_input[1 - idx, -1].sum() == 0
-                assert linear_input[1 - idx, -1].sum() == 0
                 assert stop_target[1 - idx, -1] == 1
                 assert len(mel_lengths.shape) == 1
 
                 # check batch conditions
                 assert (mel_input * stop_target.unsqueeze(2)).sum() == 0
-                assert (linear_input * stop_target.unsqueeze(2)).sum() == 0
 
 
 class TestKusalDataset(unittest.TestCase):
