@@ -17,7 +17,6 @@ class AudioProcessor(object):
                  min_level_db=None,
                  frame_shift_ms=None,
                  frame_length_ms=None,
-                 ref_level_db=None,
                  num_freq=None):
 
         print(" > Setting up Audio Processor...")
@@ -27,7 +26,6 @@ class AudioProcessor(object):
         self.min_level_db = min_level_db
         self.frame_shift_ms = frame_shift_ms
         self.frame_length_ms = frame_length_ms
-        self.ref_level_db = ref_level_db
         self.num_freq = num_freq
         self.n_fft, self.hop_length, self.win_length = self._stft_parameters()
 
@@ -90,7 +88,7 @@ class AudioProcessor(object):
     def inv_spectrogram(self, spectrogram):
         """Converts spectrogram to waveform using librosa"""
         S = self._denormalize(spectrogram)
-        S = self._db_to_amp(S + self.ref_level_db)  # Convert back to linear
+        S = self._db_to_amp(S)  # Convert back to linear
         # Reconstruct phase
         if self.preemphasis != 0:
             return self.apply_inv_preemphasis(self._griffin_lim(S ** self.power))
