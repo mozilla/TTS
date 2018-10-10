@@ -6,6 +6,7 @@ import torch
 from torch.utils.data import Dataset
 
 from utils.text import text_to_sequence
+from datasets.preprocess import tts_cache
 from utils.data import (prepare_data, pad_per_step, prepare_tensor,
                         prepare_stop_target)
 
@@ -18,16 +19,13 @@ class MyDataset(Dataset):
                  outputs_per_step,
                  text_cleaner,
                  ap,
-                 preprocessor,
                  batch_group_size=0,                 
                  min_seq_len=0,
                  ):
         self.root_dir = root_dir
         self.batch_group_size = batch_group_size
-        self.wav_dir = os.path.join(root_dir, 'wavs')
         self.feat_dir = os.path.join(root_dir, 'loader_data')
-        self.csv_dir = os.path.join(root_dir, csv_file)
-        self.items = preprocessor(root_path, meta_file)
+        self.items = tts_cache(root_path, meta_file)
         self.outputs_per_step = outputs_per_step
         self.sample_rate = ap.sample_rate
         self.cleaners = text_cleaner
