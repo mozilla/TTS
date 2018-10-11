@@ -23,6 +23,7 @@ class AudioProcessor(object):
         power=None,
         preemphasis=None,
         griffin_lim_iters=None,
+        **kwargs
     ):
 
         print(" > Setting up Audio Processor...")
@@ -170,7 +171,9 @@ class AudioProcessor(object):
     #     return np.sign(signal) * magnitude
 
     def load_wav(self, filename, encode=False):
-        x = librosa.load(filename, sr=self.sample_rate)[0]
+        x, sr = librosa.load(filename, sr=self.sample_rate)
+        assert self.sample_rate == sr
+        return x
 
     def encode_16bits(self, x):
         return np.clip(x * 2 ** 15, -2 ** 15, 2 ** 15 - 1).astype(np.int16)
