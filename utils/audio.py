@@ -17,7 +17,8 @@ class AudioProcessor(object):
                  min_level_db=None,
                  frame_shift_ms=None,
                  frame_length_ms=None,
-                 num_freq=None):
+                 num_freq=None,
+                 **kwargs):
 
         print(" > Setting up Audio Processor...")
         self.bits = bits
