@@ -29,6 +29,8 @@ class AudioProcessor(object):
         self.frame_length_ms = frame_length_ms
         self.num_freq = num_freq
         self.n_fft, self.hop_length, self.win_length = self._stft_parameters()
+        members = vars(self)
+        pprint(members)
 
     def save_wav(self, wav, path):
         wav_norm = wav * (32767 / max(0.01, np.max(np.abs(wav))))

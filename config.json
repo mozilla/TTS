@@ -39,5 +39,5 @@
     "dataset": "tts_cache",
     "min_seq_len": 0,
     "output_path": "../keep/",
-    "num_loader_workers": 4
+    "num_loader_workers": 8
 }
