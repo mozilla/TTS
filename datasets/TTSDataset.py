@@ -11,7 +11,7 @@ from utils.data import (prepare_data, pad_per_step, prepare_tensor,
                         prepare_stop_target)
 
 
-class TTSDataset(Dataset):
+class MyDataset(Dataset):
     def __init__(self,
                  root_path,
                  meta_file,
