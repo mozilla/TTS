@@ -383,7 +383,7 @@ def main(args):
         best_loss = save_best_model(model, optimizer, train_loss, best_loss,
                                     OUT_PATH, current_step, epoch)
          # shuffle batch groups
-        train_loader.dataset.sort_frames()
+        train_loader.dataset.sort_items()
 
 
 if __name__ == '__main__':

@@ -10,7 +10,6 @@ import librosa
 import importlib
 import numpy as np
 import tqdm
-import tables
 from utils.generic_utils import load_config, copy_config_file
 from utils.audio import AudioProcessor
 
@@ -51,22 +50,11 @@ if __name__ == "__main__":
 
     # audio = importlib.import_module('utils.' + c.audio_processor)
     # AudioProcessor = getattr(audio, 'AudioProcessor')
-    ap = AudioProcessor(
-        sample_rate=CONFIG.sample_rate,
-        num_mels=CONFIG.num_mels,
-        min_level_db=CONFIG.min_level_db,
-        frame_shift_ms=CONFIG.frame_shift_ms,
-        frame_length_ms=CONFIG.frame_length_ms,
-        ref_level_db=CONFIG.ref_level_db,
-        num_freq=CONFIG.num_freq,
-        power=CONFIG.power,
-        preemphasis=CONFIG.preemphasis)
-        # min_mel_freq=CONFIG.min_mel_freq,
-        # max_mel_freq=CONFIG.max_mel_freq)
+    ap = AudioProcessor(**CONFIG.audio)
 
     def trim_silence(self, wav):
         """ Trim silent parts with a threshold and 0.1 sec margin """
-        margin = int(CONFIG.sample_rate * 0.1)
+        margin = int(ap.sample_rate * 0.1)
         wav = wav[margin:-margin]
         return librosa.effects.trim(
             wav, top_db=40, frame_length=1024, hop_length=256)[0]
@@ -75,7 +63,7 @@ if __name__ == "__main__":
         """ Compute spectrograms, length information """
         text = item[0]
         file_path = item[1]
-        x = ap.load_wav(file_path, CONFIG.sample_rate)
+        x = ap.load_wav(file_path, ap.sample_rate)
         if args.trim_silence:
             x = trim_silence(x)
         file_name = os.path.basename(file_path).replace(".wav", "")

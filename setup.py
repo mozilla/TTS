@@ -81,10 +81,10 @@ setup(
         "Pillow",
         "flask",
         "lws",
+        "tqdm",
     ],
     extras_require={
         "bin": [
-            "tqdm",
             "requests",
         ],
     })
