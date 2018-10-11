@@ -1,4 +1,5 @@
 import os
+import random
 import numpy as np
 import collections
 import librosa
@@ -14,25 +15,26 @@ from utils.data import (prepare_data, pad_per_step, prepare_tensor,
 class MyDataset(Dataset):
     # TODO: Not finished yet.
     def __init__(self,
-                 root_dir,
-                 csv_file,
+                 root_path,
+                 meta_file,
                  outputs_per_step,
                  text_cleaner,
                  ap,
                  batch_group_size=0,                 
                  min_seq_len=0,
+                 **kwargs
                  ):
-        self.root_dir = root_dir
+        self.root_path = root_path
         self.batch_group_size = batch_group_size
-        self.feat_dir = os.path.join(root_dir, 'loader_data')
+        self.feat_dir = os.path.join(root_path, 'loader_data')
         self.items = tts_cache(root_path, meta_file)
         self.outputs_per_step = outputs_per_step
         self.sample_rate = ap.sample_rate
         self.cleaners = text_cleaner
         self.min_seq_len = min_seq_len
-        print(" > Reading LJSpeech from - {}".format(root_dir))
-        print(" | > Number of instances : {}".format(len(self.frames)))
-        self._sort_frames()
+        print(" > Reading LJSpeech from - {}".format(root_path))
+        print(" | > Number of instances : {}".format(len(self.items)))
+        self.sort_items()
 
     def load_wav(self, filename):
         try:
@@ -45,9 +47,9 @@ class MyDataset(Dataset):
         data = np.load(filename).astype('float32')
         return data
 
-    def sort_frames(self):
+    def sort_items(self):
         r"""Sort text sequences in ascending order"""
-        lengths = np.array([len(ins[1]) for ins in self.frames])
+        lengths = np.array([len(ins[1]) for ins in self.items])
 
         print(" | > Max length sequence {}".format(np.max(lengths)))
         print(" | > Min length sequence {}".format(np.min(lengths)))
@@ -61,7 +63,7 @@ class MyDataset(Dataset):
             if length < self.min_seq_len:
                 ignored.append(idx)
             else:
-                new_frames.append(self.frames[idx])
+                new_frames.append(self.items[idx])
         print(" | > {} instances are ignored by min_seq_len ({})".format(
             len(ignored), self.min_seq_len))
         # shuffle batch groups
@@ -73,18 +75,17 @@ class MyDataset(Dataset):
                 temp_frames = new_frames[offset : end_offset]
                 random.shuffle(temp_frames)
                 new_frames[offset : end_offset] = temp_frames
-        self.frames = new_frames
+        self.items = new_frames
 
     def __len__(self):
-        return len(self.frames)
+        return len(self.items)
 
     def __getitem__(self, idx):
-        wav_name = os.path.join(self.wav_dir, self.frames[idx][0]) + '.wav'
-        mel_name = os.path.join(self.feat_dir,
-                                self.frames[idx][0]) + '_mel.npy'
+        wav_name = self.items[idx][0]
+        mel_name = self.items[idx][1]
         # linear_name = os.path.join(self.feat_dir,
-        #                            self.frames[idx][0]) + '_linear.npy'
-        text = self.frames[idx][1]
+        #                            self.items[idx][0]) + '_linear.npy'
+        text = self.items[idx][-1]
         text = np.asarray(
             text_to_sequence(text, [self.cleaners]), dtype=np.int32)
         wav = np.asarray(self.load_wav(wav_name)[0], dtype=np.float32)
@@ -93,7 +94,7 @@ class MyDataset(Dataset):
         sample = {
             'text': text,
             'wav': wav,
-            'item_idx': self.frames[idx][0],
+            'item_idx': self.items[idx][0],
             'mel': mel,
             # 'linear': linear
         }
