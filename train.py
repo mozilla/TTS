@@ -279,6 +279,8 @@ def evaluate(model, criterion, criterion_st, data_loader, ap, current_step):
 def main(args):
     preprocessor = importlib.import_module('datasets.preprocess')
     preprocessor = getattr(preprocessor, c.dataset.lower())
+    MyDataset = importlib.import_module('datasets.'+c.data_loader)
+    MyDataset = getattr(MyDataset, "MyDataset")
     audio = importlib.import_module('utils.' + c.audio_processor)
     AudioProcessor = getattr(audio, 'AudioProcessor')
 
@@ -294,7 +296,7 @@ def main(args):
         preemphasis=c.preemphasis)
 
     # Setup the dataset
-    train_dataset = TTSDataset(
+    train_dataset = MyDataset(
         c.data_path,
         c.meta_file_train,
         c.r,
@@ -314,7 +316,7 @@ def main(args):
         pin_memory=True)
 
     if c.run_eval:
-        val_dataset = TTSDataset(
+        val_dataset = MyDataset(
             c.data_path, c.meta_file_val, c.r, c.text_cleaner, preprocessor=preprocessor, ap=ap, batch_group_size=0)
 
         val_loader = DataLoader(

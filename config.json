@@ -13,6 +13,7 @@
     "ref_level_db": 20,
     "embedding_size": 256,    
     "text_cleaner": "english_cleaners",
+
     "epochs": 1000,
     "lr": 0.0015,
     "warmup_steps": 4000,
@@ -27,15 +28,16 @@
     "wd": 0.000001,
   
     "num_loader_workers": 4,
-  
     "checkpoint": true,
     "save_step": 25000,
     "print_step": 10,
     "run_eval": false,
+
     "data_path": "/snakepit/shared/data/keithito/LJSpeech-1.1/",
     "meta_file_train": "metadata.csv",
     "meta_file_val": null,
-    "dataset": "LJSpeech",
+    "data_loader": "TTSDatasetCached",
+    "dataset": "ljspeech",
     "min_seq_len": 0,
     "output_path": "../keep/"
 }
