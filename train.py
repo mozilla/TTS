@@ -21,10 +21,8 @@ from utils.visual import plot_alignment, plot_spectrogram
 from models.tacotron import Tacotron
 from layers.losses import L1LossMasked
 from utils.audio import AudioProcessor
-from datasets.TTSDataset import TTSDataset
 
 torch.manual_seed(1)
-# torch.set_num_threads(4)
 use_cuda = torch.cuda.is_available()
 
 
@@ -37,7 +35,7 @@ def train(model, criterion, criterion_st, data_loader, optimizer, optimizer_st,
     avg_stop_loss = 0
     avg_step_time = 0
     print(" | > Epoch {}/{}".format(epoch, c.epochs), flush=True)
-    n_priority_freq = int(3000 / (c.sample_rate * 0.5) * c.num_freq)
+    n_priority_freq = int(3000 / (c.audio['sample_rate'] * 0.5) * c.audio['num_freq'])
     batch_n_iter = int(len(data_loader.dataset) / c.batch_size)
     for num_iter, data in enumerate(data_loader):
         start_time = time.time()
@@ -185,7 +183,7 @@ def evaluate(model, criterion, criterion_st, data_loader, ap, current_step):
         "I'm sorry Dave. I'm afraid I can't do that.",
         "This cake is great. It's so delicious and moist."
     ]
-    n_priority_freq = int(3000 / (c.sample_rate * 0.5) * c.num_freq)
+    n_priority_freq = int(3000 / (c.audio['sample_rate'] * 0.5) * c.audio['num_freq'])
     with torch.no_grad():
         if data_loader is not None:
             for num_iter, data in enumerate(data_loader):
@@ -281,19 +279,10 @@ def main(args):
     preprocessor = getattr(preprocessor, c.dataset.lower())
     MyDataset = importlib.import_module('datasets.'+c.data_loader)
     MyDataset = getattr(MyDataset, "MyDataset")
-    audio = importlib.import_module('utils.' + c.audio_processor)
+    audio = importlib.import_module('utils.' + c.audio['audio_processor'])
     AudioProcessor = getattr(audio, 'AudioProcessor')
 
-    ap = AudioProcessor(
-        sample_rate=c.sample_rate,
-        num_mels=c.num_mels,
-        min_level_db=c.min_level_db,
-        frame_shift_ms=c.frame_shift_ms,
-        frame_length_ms=c.frame_length_ms,
-        ref_level_db=c.ref_level_db,
-        num_freq=c.num_freq,
-        power=c.power,
-        preemphasis=c.preemphasis)
+    ap = AudioProcessor(**c.audio)
 
     # Setup the dataset
     train_dataset = MyDataset(
@@ -330,7 +319,7 @@ def main(args):
     else:
         val_loader = None
 
-    model = Tacotron(c.embedding_size, ap.num_freq, c.num_mels, c.r)
+    model = Tacotron(c.embedding_size, ap.num_freq, ap.num_mels, c.r)
     print(" | > Num output units : {}".format(ap.num_freq), flush=True)
 
     optimizer = optim.Adam(model.parameters(), lr=c.lr, weight_decay=0)
@@ -414,6 +403,12 @@ if __name__ == '__main__':
         type=bool,
         default=False,
         help='do not ask for git has before run.')
+    parser.add_argument(
+        '--data_path',
+        type=str,
+        help='dataset path.',
+        default=''
+    )
     args = parser.parse_args()
 
     # setup output paths and read configs
@@ -425,6 +420,9 @@ if __name__ == '__main__':
     AUDIO_PATH = os.path.join(OUT_PATH, 'test_audios')
     os.makedirs(AUDIO_PATH, exist_ok=True)
     shutil.copyfile(args.config_path, os.path.join(OUT_PATH, 'config.json'))
+
+    if args.data_path != '':
+        c.data_path = args.data_path
 
     # setup tensorboard
     LOG_DIR = OUT_PATH

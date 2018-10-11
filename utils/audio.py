@@ -23,6 +23,7 @@ class AudioProcessor(object):
         power=None,
         preemphasis=None,
         griffin_lim_iters=None,
+        **kwargs
     ):
 
         print(" > Setting up Audio Processor...")
