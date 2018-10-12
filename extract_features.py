@@ -34,6 +34,7 @@ if __name__ == "__main__":
     parser.add_argument("--dataset", type=str, help="Target dataset to be processed.")
     parser.add_argument("--val_split", type=int, default=0, help="Number of instances for validation.")
     parser.add_argument("--meta_file", type=str, help="Meta data file to be used for the dataset.")
+    parser.add_argument("--process_audio", type=bool, default=False, help="Preprocess audio files.")
     args = parser.parse_args()
 
     DATA_PATH = args.data_path
@@ -81,6 +82,12 @@ if __name__ == "__main__":
             linear_len = linear.shape[1]
             np.save(linear_path, linear, allow_pickle=False)
             output.insert(2, linear_path+".npy")
+        if args.process_audio:
+            audio_file = file_name + "_audio"
+            audio_path = os.path.join(CACHE_PATH, 'audio', audio_file)
+            np.save(audio_path, x, allow_pickle=False)
+            del output[0]
+            output.insert(0, audio_path+".npy")
         assert mel_len == linear_len
         return output
 
@@ -91,6 +98,8 @@ if __name__ == "__main__":
             os.makedirs(os.path.join(CACHE_PATH, 'mel'))
             if not args.only_mel:
                 os.makedirs(os.path.join(CACHE_PATH, 'linear'))
+            if args.process_audio:
+                os.makedirs(os.path.join(CACHE_PATH, 'audio'))
             print(" > A new folder created at {}".format(CACHE_PATH))
 
         # Extract features

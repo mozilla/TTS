@@ -49,7 +49,7 @@ class MyDataset(Dataset):
 
     def sort_items(self):
         r"""Sort text sequences in ascending order"""
-        lengths = np.array([len(ins[1]) for ins in self.items])
+        lengths = np.array([int(ins[-2]) for ins in self.items])
 
         print(" | > Max length sequence {}".format(np.max(lengths)))
         print(" | > Min length sequence {}".format(np.min(lengths)))
@@ -88,7 +88,10 @@ class MyDataset(Dataset):
         text = self.items[idx][-1]
         text = np.asarray(
             text_to_sequence(text, [self.cleaners]), dtype=np.int32)
-        wav = np.asarray(self.load_wav(wav_name)[0], dtype=np.float32)
+        if wav_name.split('.')[-1] == 'npy':
+            wav = self.load_np(wav_name)
+        else:
+            wav = np.asarray(self.load_wav(wav_name)[0], dtype=np.float32)
         mel = self.load_np(mel_name)
         # linear = self.load_np(linear_name)
         sample = {
