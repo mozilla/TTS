@@ -35,7 +35,7 @@
     "run_eval": true,
     "meta_file_train": "tts_meta_data.csv",
     "meta_file_val": "tts_meta_data_val.csv",
-    "data_loader": "TTSDatasetCached",
+    "data_loader": "TTSDatasetMemory",
     "dataset": "tts_cache",
     "min_seq_len": 0,
     "output_path": "../keep/",
