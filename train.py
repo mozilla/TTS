@@ -422,7 +422,7 @@ def main(args):
         best_loss = checkpoint['linear_loss']
         args.restore_step = checkpoint['step']
     else:
-        args.restore_step = 0
+        args.restore_step = -1
         print("\n > Starting a new training", flush=True)
         if use_cuda:
             model = model.cuda()
