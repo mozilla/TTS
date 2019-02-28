@@ -28,7 +28,7 @@ symbols = [_pad, _eos] + list(_characters) + _arpabet
 phonemes = [_pad, _eos] + list(_phonemes) + list(_punctuations)
 
 if __name__ == '__main__':
-    print(" > TTS symbols ")
+    print(" > TTS symbols {}".format(len(symbols)))
     print(symbols)
-    print(" > TTS phonemes ")
+    print(" > TTS phonemes {}".format(len(phonemes)))
     print(phonemes)
