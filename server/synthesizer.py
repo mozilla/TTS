@@ -5,7 +5,7 @@ import torch
 import scipy
 import numpy as np
 import soundfile as sf
-from utils.text import text_to_sequence
+from utils.text import text_to_sequence, phoneme_to_sequence
 from utils.generic_utils import load_config
 from utils.audio import AudioProcessor
 from models.tacotron import Tacotron
@@ -51,7 +51,7 @@ class Synthesizer(object):
             sen += '.'
             print(sen)
             sen = sen.strip()
-            seq = np.array(text_to_sequence(sen, text_cleaner))
+            seq = np.array(phoneme_to_sequence(sen, text_cleaner, self.config.phoneme_language))
             chars_var = torch.from_numpy(seq).unsqueeze(0).long()
             if self.use_cuda:
                 chars_var = chars_var.cuda()
