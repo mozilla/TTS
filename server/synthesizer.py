@@ -23,7 +23,7 @@ class Synthesizer(object):
         self.config = config
         self.use_cuda = use_cuda
         self.ap = AudioProcessor(**config.audio)
-        self.model = Tacotron(config.embedding_size, self.ap.num_freq, self.ap.num_mels, config.r)
+        self.model = Tacotron(61, config.embedding_size, self.ap.num_freq, self.ap.num_mels, config.r)
         # load model state
         if use_cuda:
             cp = torch.load(self.model_file)
