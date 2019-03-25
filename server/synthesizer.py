@@ -59,8 +59,10 @@ class Synthesizer(object):
                 chars_var)
             linear_out = linear_out[0].data.cpu().numpy()
             wav = self.ap.inv_spectrogram(linear_out.T)
-            out = io.BytesIO()
             wavs += list(wav)
             wavs += [0] * 10000
+
+        out = io.BytesIO()
         self.save_wav(wavs, out)
+
         return out
