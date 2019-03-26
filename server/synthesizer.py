@@ -5,7 +5,7 @@ import torch
 import scipy
 import numpy as np
 import soundfile as sf
-from utils.text import text_to_sequence
+from utils.text import text_to_sequence, phoneme_to_sequence
 from utils.generic_utils import load_config
 from utils.audio import AudioProcessor
 from models.tacotron import Tacotron
@@ -23,7 +23,7 @@ class Synthesizer(object):
         self.config = config
         self.use_cuda = use_cuda
         self.ap = AudioProcessor(**config.audio)
-        self.model = Tacotron(config.embedding_size, self.ap.num_freq, self.ap.num_mels, config.r)
+        self.model = Tacotron(61, config.embedding_size, self.ap.num_freq, self.ap.num_mels, config.r)
         # load model state
         if use_cuda:
             cp = torch.load(self.model_file)
@@ -51,7 +51,7 @@ class Synthesizer(object):
             sen += '.'
             print(sen)
             sen = sen.strip()
-            seq = np.array(text_to_sequence(sen, text_cleaner))
+            seq = np.array(phoneme_to_sequence(sen, text_cleaner, self.config.phoneme_language))
             chars_var = torch.from_numpy(seq).unsqueeze(0).long()
             if self.use_cuda:
                 chars_var = chars_var.cuda()
@@ -59,8 +59,10 @@ class Synthesizer(object):
                 chars_var)
             linear_out = linear_out[0].data.cpu().numpy()
             wav = self.ap.inv_spectrogram(linear_out.T)
-            out = io.BytesIO()
             wavs += list(wav)
             wavs += [0] * 10000
+
+        out = io.BytesIO()
         self.save_wav(wavs, out)
+
         return out
