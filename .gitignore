@@ -118,7 +118,7 @@ venv.bak/
 result/
 
 # setup.py
-version.py
+# version.py
 
 # jupyter dummy files
 core
