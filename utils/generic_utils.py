@@ -13,6 +13,7 @@ import numpy as np
 from collections import OrderedDict
 from torch.autograd import Variable
 from utils.text import text_to_sequence
+from utils.text.symbols import get_num_chars
 
 
 class AttrDict(dict):
@@ -244,24 +245,10 @@ def set_init_dict(model_dict, checkpoint, c):
     return model_dict
 
 
-def setup_model(num_chars, c):
+def setup_model(c):
     print(" > Using model: {}".format(c.model))
-    MyModel = importlib.import_module('models.' + c.model.lower())
-    MyModel = getattr(MyModel, c.model)
-    if c.model.lower() == "tacotron":
-        model = MyModel(
-            num_chars=num_chars,
-            r=c.r,
-            attn_win=c.windowing,
-            attn_norm=c.attention_norm,
-            memory_size=c.memory_size)
-    elif c.model.lower() == "tacotron2":
-        model = MyModel(
-            num_chars=num_chars,
-            r=c.r,
-            attn_win=c.windowing,
-            attn_norm=c.attention_norm,
-            prenet_type=c.prenet_type,
-            forward_attn=c.use_forward_attn,
-            trans_agent=c.transition_agent)
+    num_chars = get_num_chars(c.use_phonemes)
+    module = importlib.import_module('models.' + c.model.lower())
+    model_class = getattr(module, c.model)
+    model = model_class(num_chars, c)
     return model

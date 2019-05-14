@@ -40,12 +40,10 @@ class Synthesizer(object):
         self.use_phonemes = self.tts_config.use_phonemes
         self.ap = AudioProcessor(**self.tts_config.audio)
         if self.use_phonemes:
-            self.input_size = len(phonemes)
             self.input_adapter = lambda sen: phoneme_to_sequence(sen, [self.tts_config.text_cleaner], self.tts_config.phoneme_language, self.tts_config.enable_eos_bos_chars)
         else:
-            self.input_size = len(symbols)
             self.input_adapter = lambda sen: text_to_sequence(sen, [self.tts_config.text_cleaner])
-        self.tts_model = setup_model(self.input_size, self.tts_config)
+        self.tts_model = setup_model(self.tts_config)
         # load model state
         if use_cuda:
             cp = torch.load(self.model_file)

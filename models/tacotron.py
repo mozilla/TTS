@@ -7,26 +7,23 @@ from utils.generic_utils import sequence_mask
 
 
 class Tacotron(nn.Module):
+
     def __init__(self,
                  num_chars,
-                 linear_dim=1025,
-                 mel_dim=80,
-                 r=5,
-                 padding_idx=None,
-                 memory_size=5,
-                 attn_win=False,
-                 attn_norm="sigmoid"):
+                 c,
+                 padding_idx=None):
         super(Tacotron, self).__init__()
-        self.r = r
-        self.mel_dim = mel_dim
-        self.linear_dim = linear_dim
+        self.r = c.r
+        self.mel_dim = c.num_mels
+        self.linear_dim = c.audio.num_freq
         self.embedding = nn.Embedding(num_chars, 256, padding_idx=padding_idx)
         self.embedding.weight.data.normal_(0, 0.3)
         self.encoder = Encoder(256)
-        self.decoder = Decoder(256, mel_dim, r, memory_size, attn_win, attn_norm)
-        self.postnet = PostCBHG(mel_dim)
+        self.decoder = Decoder(256, self.mel_dim, c.r, c.memory_size,
+                               c.windowing, c.attention_norm)
+        self.postnet = PostCBHG(self.mel_dim)
         self.last_linear = nn.Sequential(
-            nn.Linear(self.postnet.cbhg.gru_features * 2, linear_dim),
+            nn.Linear(self.postnet.cbhg.gru_features * 2, self.linear_dim),
             nn.Sigmoid())
 
     def forward(self, characters, text_lengths, mel_specs):

@@ -7,18 +7,19 @@ from layers.tacotron2 import Encoder, Decoder, Postnet
 from utils.generic_utils import sequence_mask
 
 
-# TODO: match function arguments with tacotron
 class Tacotron2(nn.Module):
-    def __init__(self, num_chars, r, attn_win=False, attn_norm="softmax", prenet_type="original", forward_attn=False, trans_agent=False):
+    def __init__(self, num_chars, c):
         super(Tacotron2, self).__init__()
-        self.n_mel_channels = 80
-        self.n_frames_per_step = r
+        self.n_mel_channels = c.num_mels
+        self.n_frames_per_step = c.r
         self.embedding = nn.Embedding(num_chars, 512)
         std = sqrt(2.0 / (num_chars + 512))
         val = sqrt(3.0) * std  # uniform bounds for std
         self.embedding.weight.data.uniform_(-val, val)
         self.encoder = Encoder(512)
-        self.decoder = Decoder(512, self.n_mel_channels, r, attn_win, attn_norm, prenet_type, forward_attn, trans_agent)
+        self.decoder = Decoder(512, self.n_mel_channels, c.r,
+                               c.windowing, c.attention_norm, c.prenet_type,
+                               c.use_forward_attn, c.transition_agent)
         self.postnet = Postnet(self.n_mel_channels)
 
     def shape_outputs(self, mel_outputs, mel_outputs_postnet, alignments):
@@ -49,7 +50,6 @@ class Tacotron2(nn.Module):
         mel_outputs, mel_outputs_postnet, alignments = self.shape_outputs(
             mel_outputs, mel_outputs_postnet, alignments)
         return mel_outputs, mel_outputs_postnet, alignments, stop_tokens
-
 
     def inference_truncated(self, text):
         """

@@ -28,6 +28,10 @@ _arpabet = ['@' + s for s in _phonemes]
 symbols = [_pad, _eos, _bos] + list(_characters) + _arpabet
 phonemes = [_pad, _eos, _bos] + list(_phonemes) + list(_punctuations)
 
+
+def get_num_chars(use_phonemes):
+    return len(phonemes) if use_phonemes else len(symbols)
+
 # Generate ALIEN language
 # from random import shuffle
 # shuffle(phonemes)

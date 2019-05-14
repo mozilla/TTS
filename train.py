@@ -38,8 +38,12 @@ print(" > Using CUDA: ", use_cuda)
 print(" > Number of GPUs: ", num_gpus)
 
 
-def setup_loader(is_val=False, verbose=False):
-    global ap
+def preprocessor_factory(dataset_type):
+    preprocessor_module = importlib.import_module('datasets.preprocess')
+    return getattr(preprocessor_module, dataset_type.lower())
+
+
+def setup_loader(ap, c, is_val=False, verbose=False):
     if is_val and not c.run_eval:
         loader = None
     else:
@@ -48,7 +52,7 @@ def setup_loader(is_val=False, verbose=False):
             c.meta_file_val if is_val else c.meta_file_train,
             c.r,
             c.text_cleaner,
-            preprocessor=preprocessor,
+            preprocessor=preprocessor_factory(c.dataset),
             ap=ap,
             batch_group_size=0 if is_val else c.batch_group_size * c.batch_size,
             min_seq_len=0 if is_val else c.min_seq_len,
@@ -74,8 +78,9 @@ def setup_loader(is_val=False, verbose=False):
 
 
 def train(model, criterion, criterion_st, optimizer, optimizer_st, scheduler,
-          ap, epoch):
-    data_loader = setup_loader(is_val=False, verbose=(epoch==0))
+          ap, epoch, c):
+    is_first_epoch = epoch == 0
+    data_loader = setup_loader(ap, c, is_val=False, verbose=is_first_epoch)
     model.train()
     epoch_time = 0
     avg_postnet_loss = 0
@@ -244,8 +249,8 @@ def train(model, criterion, criterion_st, optimizer, optimizer_st, scheduler,
     return avg_postnet_loss, current_step
 
 
-def evaluate(model, criterion, criterion_st, ap, current_step, epoch):
-    data_loader = setup_loader(is_val=True)
+def evaluate(model, criterion, criterion_st, ap, current_step, epoch, c):
+    data_loader = setup_loader(ap, c, is_val=True)
     model.eval()
     epoch_time = 0
     avg_postnet_loss = 0
@@ -384,13 +389,15 @@ def evaluate(model, criterion, criterion_st, ap, current_step, epoch):
     return avg_postnet_loss
 
 
-def main(args):
+def main(args, c):
     # DISTRUBUTED
     if num_gpus > 1:
         init_distributed(args.rank, num_gpus, args.group_id,
                          c.distributed["backend"], c.distributed["url"])
-    num_chars = len(phonemes) if c.use_phonemes else len(symbols)
-    model = setup_model(num_chars, c)
+    model = setup_model(c)
+
+    # Audio processor
+    ap = AudioProcessor(**c.audio)
 
     print(" | > Num output units : {}".format(ap.num_freq), flush=True)
 
@@ -459,8 +466,9 @@ def main(args):
     for epoch in range(0, c.epochs):
         train_loss, current_step = train(model, criterion, criterion_st,
                                          optimizer, optimizer_st, scheduler,
-                                         ap, epoch)
-        val_loss = evaluate(model, criterion, criterion_st, ap, current_step, epoch)
+                                         ap, epoch, c)
+        val_loss = evaluate(model, criterion, criterion_st,
+                            ap, current_step, epoch, c)
         print(
             " | > Training Loss: {:.5f}   Validation Loss: {:.5f}".format(
                 train_loss, val_loss),
@@ -505,7 +513,6 @@ if __name__ == '__main__':
         default='',
         help='folder name for traning outputs.'
     )
-
     # DISTRUBUTED
     parser.add_argument(
         '--rank',
@@ -521,12 +528,12 @@ if __name__ == '__main__':
 
     # setup output paths and read configs
     c = load_config(args.config_path)
-    _ = os.path.dirname(os.path.realpath(__file__))
+    base_dir = os.path.dirname(os.path.realpath(__file__))
     if args.data_path != '':
         c.data_path = args.data_path
 
     if args.output_path == '':
-        OUT_PATH = os.path.join(_, c.output_path)
+        OUT_PATH = os.path.join(base_dir, c.output_path)
     else:
         OUT_PATH = args.output_path
 
@@ -543,23 +550,15 @@ if __name__ == '__main__':
         if args.restore_path:
             new_fields["restore_path"] = args.restore_path
         new_fields["github_branch"] = get_git_branch()
-        copy_config_file(args.config_path, os.path.join(OUT_PATH, 'config.json'), new_fields)
+        copy_config_file(args.config_path,
+                         os.path.join(OUT_PATH, 'config.json'), new_fields)
         os.chmod(AUDIO_PATH, 0o775)
         os.chmod(OUT_PATH, 0o775)
-
-    if args.rank==0:
         LOG_DIR = OUT_PATH
         tb_logger = Logger(LOG_DIR)
 
-    # Conditional imports
-    preprocessor = importlib.import_module('datasets.preprocess')
-    preprocessor = getattr(preprocessor, c.dataset.lower())
-
-    # Audio processor
-    ap = AudioProcessor(**c.audio)
-
     try:
-        main(args)
+        main(args, c)
     except KeyboardInterrupt:
         remove_experiment_folder(OUT_PATH)
         try:
