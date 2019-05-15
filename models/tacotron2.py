@@ -10,7 +10,7 @@ from utils.generic_utils import sequence_mask
 class Tacotron2(nn.Module):
     def __init__(self, num_chars, c):
         super(Tacotron2, self).__init__()
-        self.n_mel_channels = c.num_mels
+        self.n_mel_channels = c.audio['num_mels']
         self.n_frames_per_step = c.r
         self.embedding = nn.Embedding(num_chars, 512)
         std = sqrt(2.0 / (num_chars + 512))

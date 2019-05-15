@@ -14,8 +14,8 @@ class Tacotron(nn.Module):
                  padding_idx=None):
         super(Tacotron, self).__init__()
         self.r = c.r
-        self.mel_dim = c.num_mels
-        self.linear_dim = c.audio.num_freq
+        self.mel_dim = c.audio['num_mels']
+        self.linear_dim = c.audio['num_freq']
         self.embedding = nn.Embedding(num_chars, 256, padding_idx=padding_idx)
         self.embedding.weight.data.normal_(0, 0.3)
         self.encoder = Encoder(256)
