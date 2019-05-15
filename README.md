@@ -7,6 +7,11 @@ TTS includes two different model implementations which are based on [Tacotron](h
 
 If you are new, you can also find [here](http://www.erogol.com/text-speech-deep-learning-architectures/) a brief post about TTS architectures and their comparisons.
 
+## TTS Performance 
+<p align="center"><img src="https://user-images.githubusercontent.com/1402048/56998082-36d43500-6baa-11e9-8ca3-6c91d3a747bf.png"/></p>
+
+[Details...](https://github.com/mozilla/TTS/issues/186)
+
 ## Requirements and Installation
 Highly recommended to use [miniconda](https://conda.io/miniconda.html) for easier installation.
   * python>=3.6
@@ -69,9 +74,7 @@ Audio length is approximately 6 secs.
 
 
 ## Datasets and Data-Loading
-TTS provides a generic dataloder easy to use for new datasets. You need to write an adaptor to format and that's all you need.Check ```datasets/preprocess.py``` to see example adaptors. After you wrote an adaptor, you need to set ```dataset``` field in ```config.json```. Do not forget other data related fields. 
-
-You can also use pre-computed features. In this case, compute features with ```extract_features.py``` and set ```dataset``` field as ```tts_cache```. 
+TTS provides a generic dataloder easy to use for new datasets. You need to write an adaptor to format and that's all you need.Check ```datasets/preprocess.py``` to see example adaptors. After you wrote an adaptor, you need to set ```dataset``` field in ```config.json```. Do not forget other data related fields.  
 
 Example datasets, we successfully applied TTS, are linked below.
 
@@ -111,6 +114,13 @@ You can also enjoy Tensorboard,  if you point the Tensorboard argument```--logdi
 
 ## Testing
 Best way to test your network is to use Notebooks under ```notebooks``` folder.
+
+## Contact/Getting Help
+- [Wiki](https://github.com/mozilla/TTS/wiki)
+
+- [Discourse Forums](https://discourse.mozilla.org/c/tts) - If your question is not addressed in the Wiki, the Discourse Forums is the next place to look. They contain conversations on General Topics, Using TTS, and TTS Development.
+
+- [Issues](https://github.com/mozilla/TTS/issues) - Finally, if all else fails, you can open an issue in our repo.
 
 ## What is new with TTS
 If you train TTS with LJSpeech dataset, you start to hear reasonable results after 12.5K iterations with batch size 32. This is the fastest training with character-based methods up to our knowledge. Out implementation is also quite robust against long sentences.

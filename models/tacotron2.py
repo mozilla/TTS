@@ -19,7 +19,8 @@ class Tacotron2(nn.Module):
         self.encoder = Encoder(512)
         self.decoder = Decoder(512, self.n_mel_channels, c.r,
                                c.windowing, c.attention_norm, c.prenet_type,
-                               c.use_forward_attn, c.transition_agent)
+                               c.prenet_dropout, c.use_forward_attn,
+                               c.transition_agent, c.location_attn)
         self.postnet = Postnet(self.n_mel_channels)
 
     def shape_outputs(self, mel_outputs, mel_outputs_postnet, alignments):
