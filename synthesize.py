@@ -90,7 +90,7 @@ if __name__ == "__main__":
 
     # load the model
     num_chars = len(phonemes) if C.use_phonemes else len(symbols)
-    model = setup_model(num_chars, C)
+    model = setup_model(num_chars, num_speakers=0, C)
     cp = torch.load(args.model_path)
     model.load_state_dict(cp['model'])
     model.eval()
