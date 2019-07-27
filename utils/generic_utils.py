@@ -250,7 +250,7 @@ def setup_model(num_chars, num_speakers, c):
     print(" > Using model: {}".format(c.model))
     MyModel = importlib.import_module('models.' + c.model.lower())
     MyModel = getattr(MyModel, c.model)
-    if c.model.lower() in ["tacotron", "tacotrongst"]:
+    if c.model.lower() == "tacotron":
         model = MyModel(
             num_chars=num_chars,
             num_speakers=num_speakers,
@@ -266,7 +266,8 @@ def setup_model(num_chars, num_speakers, c):
             trans_agent=c.transition_agent,
             forward_attn_mask=c.forward_attn_mask,
             location_attn=c.location_attn,
-            separate_stopnet=c.separate_stopnet)
+            separate_stopnet=c.separate_stopnet,
+            use_gst=c.use_gst)
     elif c.model.lower() == "tacotron2":
         model = MyModel(
             num_chars=num_chars,
@@ -280,7 +281,10 @@ def setup_model(num_chars, num_speakers, c):
             trans_agent=c.transition_agent,
             forward_attn_mask=c.forward_attn_mask,
             location_attn=c.location_attn,
-            separate_stopnet=c.separate_stopnet)
+            separate_stopnet=c.separate_stopnet,
+            use_gst=c.use_gst)
+    else:
+        raise ValueError(f"unknown model type: {c.model.lower()}")
     return model
 
 

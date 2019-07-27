@@ -31,7 +31,7 @@
     
         "reinit_layers": [],
     
-        "model": "TacotronGST",          // one of the model in models/    
+        "model": "Tacotron",          // one of the model in models/
         "grad_clip": 1,                // upper limit for gradients for clipping.
         "epochs": 10000,                // total number of epochs to train.
         "lr": 0.0001,                  // Initial learning rate. If Noam decay is active, maximum learning rate.
@@ -78,6 +78,7 @@
         "phoneme_language": "en-us",     // depending on your target language, pick one from  https://github.com/bootphon/phonemizer#languages
         "text_cleaner": "phoneme_cleaners",
         "use_speaker_embedding": false, // whether to use additional embeddings for separate speakers
-        "style_wav_for_test": null // path to wav for styling the inference tests when using GST
+        "style_wav_for_test": null, // path to wav for styling the inference tests when using GST
+        "use_gst": false //enable global style tokens for the model
     }
     

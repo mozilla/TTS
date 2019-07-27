@@ -1,5 +1,7 @@
 from math import sqrt
 from torch import nn
+
+from layers.gst_layers import GST
 from layers.tacotron2 import Encoder, Decoder, Postnet
 from utils.generic_utils import sequence_mask
 
@@ -18,11 +20,15 @@ class Tacotron2(nn.Module):
                  trans_agent=False,
                  forward_attn_mask=False,
                  location_attn=True,
-                 separate_stopnet=True):
+                 separate_stopnet=True,
+                 enable_gst=False):
         super(Tacotron2, self).__init__()
         self.n_mel_channels = 80
         self.n_frames_per_step = r
+        self.enable_gst = enable_gst
+
         self.embedding = nn.Embedding(num_chars, 512)
+
         std = sqrt(2.0 / (num_chars + 512))
         val = sqrt(3.0) * std  # uniform bounds for std
         self.embedding.weight.data.uniform_(-val, val)
@@ -30,6 +36,10 @@ class Tacotron2(nn.Module):
             self.speaker_embedding = nn.Embedding(num_speakers, 512)
             self.speaker_embedding.weight.data.normal_(0, 0.3)
         self.encoder = Encoder(512)
+        if enable_gst:
+            self.gst = GST(num_mel=self.n_mel_channels, num_heads=4,
+                           num_style_tokens=10,
+                           embedding_dim=512)
         self.decoder = Decoder(512, self.n_mel_channels, r, attn_win,
                                attn_norm, prenet_type, prenet_dropout,
                                forward_attn, trans_agent, forward_attn_mask,
@@ -49,6 +59,11 @@ class Tacotron2(nn.Module):
         encoder_outputs = self.encoder(embedded_inputs, text_lengths)
         encoder_outputs = self._add_speaker_embedding(encoder_outputs,
                                                       speaker_ids)
+        if self.enable_gst and mel_specs is not None:
+            gst_outputs = self.gst(mel_specs)
+            gst_outputs = gst_outputs.expand(-1, encoder_outputs.size(1), -1)
+            encoder_outputs = encoder_outputs + gst_outputs
+
         mel_outputs, stop_tokens, alignments = self.decoder(
             encoder_outputs, mel_specs, mask)
         mel_outputs_postnet = self.postnet(mel_outputs)
@@ -57,11 +72,16 @@ class Tacotron2(nn.Module):
             mel_outputs, mel_outputs_postnet, alignments)
         return mel_outputs, mel_outputs_postnet, alignments, stop_tokens
 
-    def inference(self, text, speaker_ids=None):
+    def inference(self, text, mel_specs=None, speaker_ids=None):
         embedded_inputs = self.embedding(text).transpose(1, 2)
         encoder_outputs = self.encoder.inference(embedded_inputs)
         encoder_outputs = self._add_speaker_embedding(encoder_outputs,
                                                       speaker_ids)
+        if self.enable_gst and mel_specs is not None:
+            gst_outputs = self.gst(mel_specs)
+            gst_outputs = gst_outputs.expand(-1, encoder_outputs.size(1), -1)
+            encoder_outputs = encoder_outputs + gst_outputs
+
         mel_outputs, stop_tokens, alignments = self.decoder.inference(
             encoder_outputs)
         mel_outputs_postnet = self.postnet(mel_outputs)
@@ -70,14 +90,18 @@ class Tacotron2(nn.Module):
             mel_outputs, mel_outputs_postnet, alignments)
         return mel_outputs, mel_outputs_postnet, alignments, stop_tokens
 
-    def inference_truncated(self, text, speaker_ids=None):
-        """
-        Preserve model states for continuous inference
-        """
+    def inference_truncated(self, text, mel_specs=None, speaker_ids=None):
+        """Preserve model states for continuous inference."""
+
         embedded_inputs = self.embedding(text).transpose(1, 2)
         encoder_outputs = self.encoder.inference_truncated(embedded_inputs)
         encoder_outputs = self._add_speaker_embedding(encoder_outputs,
                                                       speaker_ids)
+        if self.enable_gst and mel_specs is not None:
+            gst_outputs = self.gst(mel_specs)
+            gst_outputs = gst_outputs.expand(-1, encoder_outputs.size(1), -1)
+            encoder_outputs = encoder_outputs + gst_outputs
+
         mel_outputs, stop_tokens, alignments = self.decoder.inference_truncated(
             encoder_outputs)
         mel_outputs_postnet = self.postnet(mel_outputs)

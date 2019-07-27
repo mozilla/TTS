@@ -29,17 +29,12 @@ def compute_style_mel(style_wav, ap, use_cuda):
     return style_mel
 
 
-def run_model(model, inputs, CONFIG, truncated, speaker_id=None, style_mel=None):
-    if CONFIG.model == "TacotronGST" and style_mel is not None:
-        decoder_output, postnet_output, alignments, stop_tokens = model.inference(
-            inputs, style_mel=style_mel, speaker_ids=speaker_id)
-    else:
-        if truncated:
-            decoder_output, postnet_output, alignments, stop_tokens = model.inference_truncated(
-                inputs, speaker_ids=speaker_id)
-        else:
-            decoder_output, postnet_output, alignments, stop_tokens = model.inference(
-                inputs, speaker_ids=speaker_id)
+def run_model(model, inputs, truncated, speaker_id=None, style_mel=None):
+    inference_func = model.inference_truncated if truncated else model.inference
+    (decoder_output, postnet_output,
+     alignments, stop_tokens) = inference_func(inputs,
+                                               mel_specs=style_mel,
+                                               speaker_ids=speaker_id)
     return decoder_output, postnet_output, alignments, stop_tokens
 
 
@@ -55,7 +50,7 @@ def trim_silence(wav):
 
 
 def inv_spectrogram(postnet_output, ap, CONFIG):
-    if CONFIG.model in ["Tacotron", "TacotronGST"]:
+    if CONFIG.model == "Tacotron":
         wav = ap.inv_spectrogram(postnet_output.T)
     else:
         wav = ap.inv_mel_spectrogram(postnet_output.T)
@@ -97,7 +92,7 @@ def synthesis(model,
     """
     # GST processing
     style_mel = None
-    if CONFIG.model == "TacotronGST" and style_wav is not None:
+    if CONFIG.use_gst and style_wav is not None:
         style_mel = compute_style_mel(style_wav, ap, use_cuda)
     # preprocess the given text
     inputs = text_to_seqvec(text, CONFIG, use_cuda)
@@ -106,7 +101,7 @@ def synthesis(model,
         speaker_id = speaker_id.cuda()
     # synthesize voice
     decoder_output, postnet_output, alignments, stop_tokens = run_model(
-        model, inputs, CONFIG, truncated, speaker_id, style_mel)
+        model, inputs, truncated, speaker_id, style_mel)
     # convert outputs to numpy
     postnet_output, decoder_output, alignment = parse_outputs(
         postnet_output, decoder_output, alignments)

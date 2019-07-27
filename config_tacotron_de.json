@@ -31,7 +31,7 @@
             
                 "reinit_layers": [],
             
-                "model": "TacotronGST",          // one of the model in models/    
+                "model": "Tacotron",          // one of the model in models/
                 "grad_clip": 1,                // upper limit for gradients for clipping.
                 "epochs": 10000,                // total number of epochs to train.
                 "lr": 0.0001,                  // Initial learning rate. If Noam decay is active, maximum learning rate.
@@ -77,6 +77,7 @@
                 "use_phonemes": false,           // use phonemes instead of raw characters. It is suggested for better pronounciation.
                 "phoneme_language": "de",     // depending on your target language, pick one from  https://github.com/bootphon/phonemizer#languages
                 "text_cleaner": "phoneme_cleaners",
-                "use_speaker_embedding": false // whether to use additional embeddings for separate speakers
+                "use_speaker_embedding": false, // whether to use additional embeddings for separate speakers
+                "use_gst": true //enable global style tokens for the model
             }
             
