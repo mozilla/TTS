@@ -23,18 +23,19 @@ class Tacotron(nn.Module):
                  forward_attn_mask=False,
                  location_attn=True,
                  separate_stopnet=True,
-                 enable_gst=False):
+                 use_gst=False):
         super(Tacotron, self).__init__()
         self.r = r
         self.mel_dim = mel_dim
         self.linear_dim = linear_dim
         self.embedding = nn.Embedding(num_chars, 256)
         self.embedding.weight.data.normal_(0, 0.3)
+        self.use_gst = use_gst
         if num_speakers > 1:
             self.speaker_embedding = nn.Embedding(num_speakers, 256)
             self.speaker_embedding.weight.data.normal_(0, 0.3)
         self.encoder = Encoder(256)
-        if enable_gst:
+        if use_gst:
             self.gst = GST(num_mel=mel_dim, num_heads=4, num_style_tokens=10,
                            embedding_dim=256)
         self.decoder = Decoder(256, mel_dim, r, memory_size, attn_win,
@@ -53,7 +54,7 @@ class Tacotron(nn.Module):
         encoder_outputs = self.encoder(inputs)
         encoder_outputs = self._add_speaker_embedding(encoder_outputs,
                                                       speaker_ids)
-        if self.enable_gst and mel_specs is not None:
+        if self.use_gst and mel_specs is not None:
             gst_outputs = self.gst(mel_specs)
             gst_outputs = gst_outputs.expand(-1, encoder_outputs.size(1), -1)
             encoder_outputs = encoder_outputs + gst_outputs
@@ -71,7 +72,7 @@ class Tacotron(nn.Module):
         encoder_outputs = self.encoder(inputs)
         encoder_outputs = self._add_speaker_embedding(encoder_outputs,
                                                       speaker_ids)
-        if self.enable_gst and mel_specs is not None:
+        if self.use_gst and mel_specs is not None:
             gst_outputs = self.gst(mel_specs)
             gst_outputs = gst_outputs.expand(-1, encoder_outputs.size(1), -1)
             encoder_outputs = encoder_outputs + gst_outputs

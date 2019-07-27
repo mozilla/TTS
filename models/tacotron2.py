@@ -21,11 +21,11 @@ class Tacotron2(nn.Module):
                  forward_attn_mask=False,
                  location_attn=True,
                  separate_stopnet=True,
-                 enable_gst=False):
+                 use_gst=False):
         super(Tacotron2, self).__init__()
         self.n_mel_channels = 80
         self.n_frames_per_step = r
-        self.enable_gst = enable_gst
+        self.use_gst = use_gst
 
         self.embedding = nn.Embedding(num_chars, 512)
 
@@ -36,7 +36,7 @@ class Tacotron2(nn.Module):
             self.speaker_embedding = nn.Embedding(num_speakers, 512)
             self.speaker_embedding.weight.data.normal_(0, 0.3)
         self.encoder = Encoder(512)
-        if enable_gst:
+        if self.use_gst:
             self.gst = GST(num_mel=self.n_mel_channels, num_heads=4,
                            num_style_tokens=10,
                            embedding_dim=512)
@@ -59,7 +59,7 @@ class Tacotron2(nn.Module):
         encoder_outputs = self.encoder(embedded_inputs, text_lengths)
         encoder_outputs = self._add_speaker_embedding(encoder_outputs,
                                                       speaker_ids)
-        if self.enable_gst and mel_specs is not None:
+        if self.use_gst and mel_specs is not None:
             gst_outputs = self.gst(mel_specs)
             gst_outputs = gst_outputs.expand(-1, encoder_outputs.size(1), -1)
             encoder_outputs = encoder_outputs + gst_outputs
@@ -77,7 +77,7 @@ class Tacotron2(nn.Module):
         encoder_outputs = self.encoder.inference(embedded_inputs)
         encoder_outputs = self._add_speaker_embedding(encoder_outputs,
                                                       speaker_ids)
-        if self.enable_gst and mel_specs is not None:
+        if self.use_gst and mel_specs is not None:
             gst_outputs = self.gst(mel_specs)
             gst_outputs = gst_outputs.expand(-1, encoder_outputs.size(1), -1)
             encoder_outputs = encoder_outputs + gst_outputs
@@ -97,7 +97,7 @@ class Tacotron2(nn.Module):
         encoder_outputs = self.encoder.inference_truncated(embedded_inputs)
         encoder_outputs = self._add_speaker_embedding(encoder_outputs,
                                                       speaker_ids)
-        if self.enable_gst and mel_specs is not None:
+        if self.use_gst and mel_specs is not None:
             gst_outputs = self.gst(mel_specs)
             gst_outputs = gst_outputs.expand(-1, encoder_outputs.size(1), -1)
             encoder_outputs = encoder_outputs + gst_outputs
