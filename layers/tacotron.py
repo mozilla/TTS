@@ -324,18 +324,40 @@ class Decoder(nn.Module):
             self.proj_to_mel.weight,
             gain=torch.nn.init.calculate_gain('linear'))
 
-    def _reshape_memory(self, memory):
-        """
-        Reshape the spectrograms for given 'r'
-        """
+    def get_memory_start_frame(self, inputs):
+            B = inputs.size(0)
+            memory = self.memory_init(inputs.data.new_zeros(B).long())
+            return memory
+
+    def _unfold_memory(self, memory):
+        """Sliding window over memory to get all memory blocks."""
         B = memory.shape[0]
-        # Grouping multiple frames if necessary
-        if memory.size(-1) == self.memory_dim:
-            memory = memory.contiguous()
-            memory = memory.view(B, memory.size(1) // self.r, -1)
-        # Time first (T_decoder, B, memory_dim)
+        # memory (B, timesteps, memory_dim)
+
+        # unfold operator is like a sliding window size mem_size, step r
+        # timesteps is divisible by r; guaranteed by data loader
+        memory = memory.unfold(1, self.memory_size, self.r)
+        # memory (B, T_decoder = timesteps // r, memory_dim, self.r)
+
+        memory = memory.contiguous().view(B, -1,
+                                          self.memory_dim * self.memory_size)
+        # memory (B, T_decoder, memory_dim * self.r)
+
+        # switch to time first
         memory = memory.transpose(0, 1)
+        # memory (T_decoder, B, memory_dim * r)
         return memory
+
+    def _update_memory(self, memory, decoder_output):
+        if self.memory_size > 0 and \
+                decoder_output.shape[-1] < self.memory_size * self.memory_dim:
+            new_memory = torch.cat(
+                (memory[:, self.r * self.memory_dim:],
+                 decoder_output[:, -self.memory_size * self.memory_dim:]),
+                dim=-1)
+        else:
+            new_memory = decoder_output
+        return new_memory
 
     def _init_states(self, inputs):
         """
@@ -343,8 +365,6 @@ class Decoder(nn.Module):
         """
         B = inputs.size(0)
         T = inputs.size(1)
-        # go frame as zeros matrix
-        self.memory_input = self.memory_init(inputs.data.new_zeros(B).long())
 
         # decoder states
         self.attention_rnn_hidden = self.attention_rnn_init(
@@ -367,11 +387,9 @@ class Decoder(nn.Module):
         stop_tokens = torch.stack(stop_tokens).transpose(0, 1).squeeze(-1)
         return outputs, attentions, stop_tokens
 
-    def decode(self, inputs, mask=None):
-        # Prenet
-        processed_memory = self.prenet(self.memory_input)
+    def decode(self, inputs, memory, mask=None):
         # Attention RNN
-        self.attention_rnn_hidden = self.attention_rnn(torch.cat((processed_memory, self.current_context_vec), -1), self.attention_rnn_hidden)
+        self.attention_rnn_hidden = self.attention_rnn(torch.cat((memory, self.current_context_vec), -1), self.attention_rnn_hidden)
         self.current_context_vec = self.attention_layer(self.attention_rnn_hidden, inputs, self.processed_inputs, mask)
         # Concat RNN output and attention context vector
         decoder_input = self.project_to_decoder_in(
@@ -397,46 +415,35 @@ class Decoder(nn.Module):
             stop_token = self.stopnet(stopnet_input)
         return output, stop_token, self.attention_layer.attention_weights
 
-    def _update_memory_queue(self, new_memory):
-        if self.memory_size > 0 and new_memory.shape[-1] < self.memory_size:
-            self.memory_input = torch.cat([
-                self.memory_input[:, self.r * self.memory_dim:].clone(),
-                new_memory
-            ],
-                                          dim=-1)
-        else:
-            self.memory_input = new_memory
-
     def forward(self, inputs, memory, mask):
         """
         Args:
             inputs: Encoder outputs.
-            memory: Decoder memory (autoregression. If None (at eval-time),
-              decoder outputs are used as decoder inputs. If None, it uses the last
-              output as the input.
+            memory: Decoder memory (usually the mel spec, for autoregression).
             mask: Attention mask for sequence padding.
 
         Shapes:
             - inputs: batch x time x encoder_out_dim
             - memory: batch x #mel_specs x mel_spec_dim
         """
-        # Run greedy decoding if memory is None
-        memory = self._reshape_memory(memory)
-        outputs = []
-        attentions = []
-        stop_tokens = []
-        t = 0
+        memory_start = self.get_memory_start_frame(inputs)
+        memory_start = memory_start.view(inputs.size(0),
+                                         self.memory_size, self.memory_dim)
+        memory = torch.cat((memory_start, memory), dim=1)
+        memories = self._unfold_memory(memory)
+        memories = self.prenet(memories)
+
         self._init_states(inputs)
         self.attention_layer.init_states(inputs)
-        while len(outputs) < memory.size(0):
-            if t > 0:
-                new_memory = memory[t - 1]
-                self._update_memory_queue(new_memory)
-            output, stop_token, attention = self.decode(inputs, mask)
+
+        outputs, stop_tokens, attentions = [], [], []
+        while len(outputs) < memories.size(0) - 1:
+            memory = memories[len(outputs)]
+            output, stop_token, attention = self.decode(inputs,
+                                                        memory, mask)
             outputs += [output]
             attentions += [attention]
             stop_tokens += [stop_token]
-            t += 1
 
         return self._parse_outputs(outputs, attentions, stop_tokens)
 
@@ -448,29 +455,31 @@ class Decoder(nn.Module):
         Shapes:
             - inputs: batch x time x encoder_out_dim
         """
-        outputs = []
-        attentions = []
-        stop_tokens = []
-        t = 0
+        memory = self.get_memory_start_frame(inputs)
         self._init_states(inputs)
+
         self.attention_layer.init_win_idx()
         self.attention_layer.init_states(inputs)
+
+        outputs, stop_tokens, attentions, t = [], [], [], 0
         while True:
-            if t > 0:
-                new_memory = outputs[-1]
-                self._update_memory_queue(new_memory)
-            output, stop_token, attention = self.decode(inputs, None)
+            processed_memory = self.prenet(memory)
+            output, stop_token, attention = self.decode(inputs,
+                                                        processed_memory, None)
             stop_token = torch.sigmoid(stop_token.data)
             outputs += [output]
             attentions += [attention]
             stop_tokens += [stop_token]
-            t += 1
+            memory = self._update_memory(memory, outputs[-1])
+
             if t > inputs.shape[1] / 4 and (stop_token > 0.6
                                             or attention[:, -1].item() > 0.6):
                 break
             elif t > self.max_decoder_steps:
                 print("   | > Decoder stopped with 'max_decoder_steps")
                 break
+
+            t += 1
         return self._parse_outputs(outputs, attentions, stop_tokens)
 
 

@@ -280,7 +280,8 @@ def setup_model(num_chars, num_speakers, c):
             trans_agent=c.transition_agent,
             forward_attn_mask=c.forward_attn_mask,
             location_attn=c.location_attn,
-            separate_stopnet=c.separate_stopnet)
+            separate_stopnet=c.separate_stopnet,
+            memory_size=c.memory_size)
     return model
 
 

@@ -96,12 +96,13 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     # Pylint gets confused by PyTorch conventions here
     #pylint: disable=attribute-defined-outside-init
-    def __init__(self, in_features, inputs_dim, r, attn_win, attn_norm,
+    def __init__(self, in_features, memory_dim, r, attn_win, attn_norm,
                  prenet_type, prenet_dropout, forward_attn, trans_agent,
-                 forward_attn_mask, location_attn, separate_stopnet):
+                 forward_attn_mask, location_attn, separate_stopnet, memory_size):
         super(Decoder, self).__init__()
-        self.mel_channels = inputs_dim
+        self.memory_dim = memory_dim
         self.r = r
+        self.memory_size = memory_size if memory_size > 0 else r
         self.encoder_embedding_dim = in_features
         self.separate_stopnet = separate_stopnet
         self.attention_rnn_dim = 1024
@@ -112,7 +113,7 @@ class Decoder(nn.Module):
         self.p_attention_dropout = 0.1
         self.p_decoder_dropout = 0.1
 
-        self.prenet = Prenet(self.mel_channels * r, prenet_type,
+        self.prenet = Prenet(self.memory_dim * memory_size, prenet_type,
                              prenet_dropout,
                              [self.prenet_dim, self.prenet_dim], bias=False)
 
@@ -135,24 +136,24 @@ class Decoder(nn.Module):
                                        self.decoder_rnn_dim, 1)
 
         self.linear_projection = Linear(self.decoder_rnn_dim + in_features,
-                                        self.mel_channels * r)
+                                        self.memory_dim * r)
 
         self.stopnet = nn.Sequential(
             nn.Dropout(0.1),
             Linear(
-                self.decoder_rnn_dim + self.mel_channels * r,
+                self.decoder_rnn_dim + self.memory_dim * r,
                 1,
                 bias=True,
                 init_gain='sigmoid'))
 
         self.attention_rnn_init = nn.Embedding(1, self.attention_rnn_dim)
-        self.go_frame_init = nn.Embedding(1, self.mel_channels * r)
+        self.memory_init = nn.Embedding(1, self.memory_dim * self.memory_size)
         self.decoder_rnn_inits = nn.Embedding(1, self.decoder_rnn_dim)
         self.memory_truncated = None
 
-    def get_go_frame(self, inputs):
+    def get_memory_start_frame(self, inputs):
         B = inputs.size(0)
-        memory = self.go_frame_init(inputs.data.new_zeros(B).long())
+        memory = self.memory_init(inputs.data.new_zeros(B).long())
         return memory
 
     def _init_states(self, inputs, mask, keep_states=False):
@@ -177,18 +178,42 @@ class Decoder(nn.Module):
         self.processed_inputs = self.attention_layer.inputs_layer(inputs)
         self.mask = mask
 
-    def _reshape_memory(self, memories):
-        memories = memories.view(
-            memories.size(0), int(memories.size(1) / self.r), -1)
-        memories = memories.transpose(0, 1)
-        return memories
+    def _unfold_memory(self, memory):
+        """Sliding window over memory to get all memory blocks."""
+        B = memory.shape[0]
+        # memory (B, timesteps, memory_dim)
+
+        # unfold operator is like a sliding window size mem_size, step r
+        # timesteps is divisible by r; guaranteed by data loader
+        memory = memory.unfold(1, self.memory_size, self.r)
+        # memory (B, T_decoder = timesteps // r, memory_dim, self.r)
+
+        memory = memory.contiguous().view(B, -1,
+                                          self.memory_dim * self.memory_size)
+        # memory (B, T_decoder, memory_dim * self.r)
+
+        # switch to time first
+        memory = memory.transpose(0, 1)
+        # memory (T_decoder, B, memory_dim * r)
+        return memory
+
+    def _update_memory(self, memory, decoder_output):
+        if self.memory_size > 0 and \
+                decoder_output.shape[-1] < self.memory_size * self.memory_dim:
+            new_memory = torch.cat(
+                (memory[:, self.r * self.memory_dim:],
+                 decoder_output[:, -self.memory_size * self.memory_dim:]),
+                dim=-1)
+        else:
+            new_memory = decoder_output
+        return new_memory
 
     def _parse_outputs(self, outputs, stop_tokens, alignments):
         alignments = torch.stack(alignments).transpose(0, 1)
-        stop_tokens = torch.stack(stop_tokens).transpose(0, 1)
-        stop_tokens = stop_tokens.contiguous()
-        outputs = torch.stack(outputs).transpose(0, 1).contiguous()
-        outputs = outputs.view(outputs.size(0), -1, self.mel_channels)
+        stop_tokens = torch.stack(stop_tokens).transpose(0, 1).contiguous()
+        outputs = torch.stack(outputs).transpose(0, 1)
+        outputs = outputs.contiguous().view(outputs.size(0), -1,
+                                             self.memory_dim)
         outputs = outputs.transpose(1, 2)
         return outputs, stop_tokens, alignments
 
@@ -223,12 +248,15 @@ class Decoder(nn.Module):
             stop_token = self.stopnet(stopnet_input.detach())
         else:
             stop_token = self.stopnet(stopnet_input)
+        stop_token = stop_token.squeeze(1)
         return decoder_output, stop_token, self.attention_layer.attention_weights
 
-    def forward(self, inputs, memories, mask):
-        memory = self.get_go_frame(inputs).unsqueeze(0)
-        memories = self._reshape_memory(memories)
-        memories = torch.cat((memory, memories), dim=0)
+    def forward(self, inputs, memory, mask):
+        memory_start = self.get_memory_start_frame(inputs)
+        memory_start = memory_start.view(inputs.size(0),
+                                         self.memory_size, self.memory_dim)
+        memory = torch.cat((memory_start, memory), dim=1)
+        memories = self._unfold_memory(memory)
         memories = self.prenet(memories)
 
         self._init_states(inputs, mask=mask)
@@ -238,8 +266,8 @@ class Decoder(nn.Module):
         while len(outputs) < memories.size(0) - 1:
             memory = memories[len(outputs)]
             mel_output, stop_token, attention_weights = self.decode(memory)
-            outputs += [mel_output.squeeze(1)]
-            stop_tokens += [stop_token.squeeze(1)]
+            outputs += [mel_output]
+            stop_tokens += [stop_token]
             alignments += [attention_weights]
 
         outputs, stop_tokens, alignments = self._parse_outputs(
@@ -248,7 +276,7 @@ class Decoder(nn.Module):
         return outputs, stop_tokens, alignments
 
     def inference(self, inputs):
-        memory = self.get_go_frame(inputs)
+        memory = self.get_memory_start_frame(inputs)
         self._init_states(inputs, mask=None)
 
         self.attention_layer.init_win_idx()
@@ -258,12 +286,13 @@ class Decoder(nn.Module):
         stop_flags = [True, False, False]
         stop_count = 0
         while True:
-            memory = self.prenet(memory)
-            mel_output, stop_token, alignment = self.decode(memory)
+            processed_memory = self.prenet(memory)
+            output, stop_token, alignment = self.decode(processed_memory)
             stop_token = torch.sigmoid(stop_token.data)
-            outputs += [mel_output.squeeze(1)]
+            outputs += [output]
             stop_tokens += [stop_token]
             alignments += [alignment]
+            memory = self._update_memory(memory, outputs[-1])
 
             stop_flags[0] = stop_flags[0] or stop_token > 0.5
             stop_flags[1] = stop_flags[1] or (alignment[0, -2:].sum() > 0.8
@@ -277,7 +306,6 @@ class Decoder(nn.Module):
                 print("   | > Decoder stopped with 'max_decoder_steps")
                 break
 
-            memory = mel_output
             t += 1
 
         outputs, stop_tokens, alignments = self._parse_outputs(
@@ -290,7 +318,7 @@ class Decoder(nn.Module):
         Preserve decoder states for continuous inference
         """
         if self.memory_truncated is None:
-            self.memory_truncated = self.get_go_frame(inputs)
+            self.memory_truncated = self.get_memory_start_frame(inputs)
             self._init_states(inputs, mask=None, keep_states=False)
         else:
             self._init_states(inputs, mask=None, keep_states=True)
@@ -304,9 +332,10 @@ class Decoder(nn.Module):
             memory = self.prenet(self.memory_truncated)
             mel_output, stop_token, alignment = self.decode(memory)
             stop_token = torch.sigmoid(stop_token.data)
-            outputs += [mel_output.squeeze(1)]
+            outputs += [mel_output]
             stop_tokens += [stop_token]
             alignments += [alignment]
+            self.memory_truncated = self._update_memory(memory, outputs[-1])
 
             stop_flags[0] = stop_flags[0] or stop_token > 0.5
             stop_flags[1] = stop_flags[1] or (alignment[0, -2:].sum() > 0.8
@@ -320,7 +349,6 @@ class Decoder(nn.Module):
                 print("   | > Decoder stopped with 'max_decoder_steps")
                 break
 
-            self.memory_truncated = mel_output
             t += 1
 
         outputs, stop_tokens, alignments = self._parse_outputs(
@@ -333,7 +361,7 @@ class Decoder(nn.Module):
         For debug purposes
         """
         if t == 0:
-            memory = self.get_go_frame(inputs)
+            memory = self.get_memory_start_frame(inputs)
             self._init_states(inputs, mask=None)
 
         memory = self.prenet(memory)

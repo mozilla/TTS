@@ -18,7 +18,8 @@ class Tacotron2(nn.Module):
                  trans_agent=False,
                  forward_attn_mask=False,
                  location_attn=True,
-                 separate_stopnet=True):
+                 separate_stopnet=True,
+                 memory_size=5):
         super(Tacotron2, self).__init__()
         self.n_mel_channels = 80
         self.n_frames_per_step = r
@@ -33,7 +34,7 @@ class Tacotron2(nn.Module):
         self.decoder = Decoder(512, self.n_mel_channels, r, attn_win,
                                attn_norm, prenet_type, prenet_dropout,
                                forward_attn, trans_agent, forward_attn_mask,
-                               location_attn, separate_stopnet)
+                               location_attn, separate_stopnet, memory_size)
         self.postnet = Postnet(self.n_mel_channels)
 
     @staticmethod
