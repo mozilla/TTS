@@ -335,7 +335,8 @@ class Decoder(nn.Module):
             outputs += [mel_output]
             stop_tokens += [stop_token]
             alignments += [alignment]
-            self.memory_truncated = self._update_memory(memory, outputs[-1])
+            self.memory_truncated = self._update_memory(self.memory_truncated,
+                                                        outputs[-1])
 
             stop_flags[0] = stop_flags[0] or stop_token > 0.5
             stop_flags[1] = stop_flags[1] or (alignment[0, -2:].sum() > 0.8
