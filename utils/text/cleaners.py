@@ -88,10 +88,15 @@ def english_cleaners(text):
     return text
 
 
-def phoneme_cleaners(text):
+def phoneme_cleaners_en(text):
     '''Pipeline for phonemes mode, including number and abbreviation expansion.'''
     text = convert_to_ascii(text)
     text = expand_numbers(text)
     text = expand_abbreviations(text)
+    text = collapse_whitespace(text)
+    return text
+  
+  
+def phoneme_cleaners(text):
     text = collapse_whitespace(text)
     return text
