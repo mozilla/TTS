@@ -78,7 +78,8 @@ class AudioProcessor(object):
         #pylint: disable=no-else-return
         if self.signal_norm:
             min_val = self.min_level_db - self.ref_level_db
-            S_norm = ((S - min_val) / - min_val)
+            val_range = self.min_level_db 
+            S_norm = ((S - min_val) / - val_range)
             if self.symmetric_norm:
                 S_norm = ((2 * self.max_norm) * S_norm) - self.max_norm
                 if self.clip_norm:
