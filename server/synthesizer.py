@@ -5,9 +5,10 @@ import torch
 import scipy
 import numpy as np
 import soundfile as sf
-from utils.text import text_to_sequence
-from utils.generic_utils import load_config
+from utils.text import text_to_sequence, phoneme_to_sequence
+from utils.generic_utils import load_config, setup_model
 from utils.audio import AudioProcessor
+from utils.text.symbols import phonemes, symbols
 from models.tacotron import Tacotron
 from matplotlib import pylab as plt
 
@@ -23,7 +24,8 @@ class Synthesizer(object):
         self.config = config
         self.use_cuda = use_cuda
         self.ap = AudioProcessor(**config.audio)
-        self.model = Tacotron(config.embedding_size, self.ap.num_freq, self.ap.num_mels, config.r)
+        num_chars = len(phonemes) if config.use_phonemes else len(symbols)
+        self.model = setup_model(num_chars, config)
         # load model state
         if use_cuda:
             cp = torch.load(self.model_file)
@@ -51,14 +53,22 @@ class Synthesizer(object):
             sen += '.'
             print(sen)
             sen = sen.strip()
-            seq = np.array(text_to_sequence(sen, text_cleaner))
+            if self.config.use_phonemes:
+                seq = np.asarray(
+                    phoneme_to_sequence(text, text_cleaner, self.config.phoneme_language, self.config.enable_eos_bos_chars),
+                    dtype=np.int32)
+            else:
+                seq = np.asarray(text_to_sequence(text, text_cleaner), dtype=np.int32)
             chars_var = torch.from_numpy(seq).unsqueeze(0).long()
             if self.use_cuda:
                 chars_var = chars_var.cuda()
-            mel_out, linear_out, alignments, stop_tokens = self.model.forward(
+            decoder_output, postnet_output, alignments, stop_tokens = self.model.inference(
                 chars_var)
-            linear_out = linear_out[0].data.cpu().numpy()
-            wav = self.ap.inv_spectrogram(linear_out.T)
+            postnet_output = postnet_output[0].data.cpu().numpy()
+            if self.config.model == "Tacotron":
+                wav = self.ap.inv_spectrogram(postnet_output.T)
+            else:
+                wav = self.ap.inv_mel_spectrogram(postnet_output.T)           
             out = io.BytesIO()
             wavs += list(wav)
             wavs += [0] * 10000
