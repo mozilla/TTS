@@ -299,7 +299,9 @@ def evaluate(model, criterion, criterion_st, ap, global_step, epoch):
             "It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
             "Be a voice, not an echo.",
             "I'm sorry Dave. I'm afraid I can't do that.",
-            "This cake is great. It's so delicious and moist."
+            "This cake is great. It's so delicious and moist.",
+            "It was neither an assault by the Picards nor the Burgundians, nor a hunt led along in procession, nor a revolt of scholars in the town of Laas, nor an entry of our much dread lord, monsieur the king, nor even a pretty hanging of male and female thieves by the courts of Paris.",
+            "It was barely two days since the last cavalcade of that nature, that of the Flemish ambassadors charged with concluding the marriage between the dauphin and Marguerite of Flanders ."
         ]
     else:
         with open(c.test_sentences_file, "r") as f:

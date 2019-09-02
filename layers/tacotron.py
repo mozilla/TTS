@@ -278,7 +278,7 @@ class Decoder(nn.Module):
         self.r_init = r
         self.r = r
         self.in_features = in_features
-        self.max_decoder_steps = 500
+        self.max_decoder_steps = 1500
         self.use_memory_queue = memory_size > 0
         self.memory_size = memory_size if memory_size > 0 else r
         self.memory_dim = memory_dim
