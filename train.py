@@ -556,7 +556,6 @@ def main(args):  # pylint: disable=redefined-outer-name
 
     print(" | > Num output units : {}".format(ap.num_freq), flush=True)
 
-    #optimizer = optim.Adam(model.parameters(), lr=c.lr, weight_decay=0)
     optimizer = Ranger(model.parameters(), lr=c.lr)
     optimizer_gst = Ranger(model.textgst.parameters(), lr=c.lr) if c.text_gst else None
 
