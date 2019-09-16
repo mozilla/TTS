@@ -1,0 +1,3 @@
+[submodule "ranger"]
+	path = ranger
+	url = git@github.com:lessw2020/Ranger-Deep-Learning-Optimizer.git

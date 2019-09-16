@@ -18,7 +18,7 @@ class GST(nn.Module):
         enc_out = self.encoder(inputs)
         style_embed = self.style_token_layer(enc_out)
 
-        return style_embed
+        return style_embed, enc_out
 
 
 class ReferenceEncoder(nn.Module):

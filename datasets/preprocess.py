@@ -85,8 +85,9 @@ def mailabs(root_path, meta_files=None):
         # determine speaker based on folder structure...
         speaker_name_match = speaker_regex.search(txt_file)
         if speaker_name_match is None:
-            continue
-        speaker_name = speaker_name_match.group("speaker_name")
+            speaker_name = "None"
+        else:
+            speaker_name = speaker_name_match.group("speaker_name")
         print(" | > {}".format(csv_file))
         with open(txt_file, 'r') as ttf:
             for line in ttf:
