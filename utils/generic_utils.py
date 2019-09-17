@@ -257,7 +257,7 @@ def setup_model(num_chars, num_speakers, c):
     print(" > Using model: {}".format(c.model))
     MyModel = importlib.import_module('TTS.models.' + c.model.lower())
     MyModel = getattr(MyModel, c.model)
-    
+
     if c.model.lower() in ["tacotron"]:
         model = MyModel(
             num_chars=num_chars,

@@ -56,7 +56,7 @@ class TacotronGST(nn.Module):
         encoder_outputs = self._add_speaker_embedding(encoder_outputs,
                                                       speaker_ids)
 
-        textgst_outputs = self.textgst(encoder_outputs.detach(), speaker_ids=speaker_ids) if self.textgst else None #detach to prevent backprop through text-gst
+        textgst_outputs = self.textgst(encoder_outputs.detach()) if self.textgst else None #detach to prevent backprop through text-gst
         gst_outputs, _ = self.gst(mel_specs)
         gst_outputs = gst_outputs.expand(-1, encoder_outputs.size(1), -1)
         encoder_outputs = encoder_outputs + gst_outputs
