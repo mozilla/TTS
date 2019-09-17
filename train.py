@@ -493,7 +493,7 @@ def evaluate(model, criterion, criterion_st, criterion_gst, ap, global_step, epo
                              ] = plot_spectrogram(postnet_output, ap)
                 test_figures['{}-alignment'.format(idx)
                              ] = plot_alignment(alignment)
-            except (ValueError, Exception) as ex:
+            except Exception as ex:  # pylint: disable=broad-except
                 print(" !! Error creating Test Sentence -", idx, ex)
                 traceback.print_exc()
         tb_logger.tb_test_audios(
@@ -514,7 +514,7 @@ def evaluate(model, criterion, criterion_st, criterion_gst, ap, global_step, epo
                 test_audios['{}-audio-GST'.format(idx)] = wav
                 test_figures['{}-prediction-GST'.format(idx)] = plot_spectrogram(postnet_output, ap)
                 test_figures['{}-alignment-GST'.format(idx)] = plot_alignment(alignment)
-            except (ValueError, Exception) as ex:
+            except Exception as ex:  # pylint: disable=broad-except
                 print(" !! Error creating Test Sentence -", idx, ex)
                 traceback.print_exc()
         tb_logger.tb_test_audios(global_step, test_audios, c.audio['sample_rate'])
