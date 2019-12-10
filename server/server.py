@@ -11,8 +11,8 @@ def create_argparser():
         return x.lower() in ['true', '1', 'yes']
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--tts_checkpoint', type=str, help='path to TTS checkpoint file')
-    parser.add_argument('--tts_config', type=str, help='path to TTS config.json file')
+    parser.add_argument('--tts_checkpoint', type=str, default=None, help='path to TTS checkpoint file')
+    parser.add_argument('--tts_config', type=str, default=None, help='path to TTS config.json file')
     parser.add_argument('--tts_speakers', type=str, help='path to JSON file containing speaker ids, if speaker ids are used in the model')
     parser.add_argument('--wavernn_lib_path', type=str, help='path to WaveRNN project folder to be imported. If this is not passed, model uses Griffin-Lim for synthesis.')
     parser.add_argument('--wavernn_file', type=str, help='path to WaveRNN checkpoint file.')
@@ -30,14 +30,14 @@ synthesizer = None
 embedded_model_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'model')
 checkpoint_file = os.path.join(embedded_model_folder, 'checkpoint.pth.tar')
 config_file = os.path.join(embedded_model_folder, 'config.json')
+config = create_argparser().parse_args()
 
-if os.path.isfile(checkpoint_file) and os.path.isfile(config_file):
+if config.tts_checkpoint is None and config.tts_config is None:
+    print(f" >  Loading default server model from {embedded_model_folder}.")
     # Use default config with embedded model files
-    config = create_argparser().parse_args([])
     config.tts_checkpoint = checkpoint_file
     config.tts_config = config_file
-    synthesizer = Synthesizer(config)
-
+synthesizer = Synthesizer(config)
 
 app = Flask(__name__)
 
