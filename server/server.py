@@ -24,20 +24,11 @@ def create_argparser():
     return parser
 
 
-config = None
 synthesizer = None
 
 embedded_model_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'model')
 checkpoint_file = os.path.join(embedded_model_folder, 'checkpoint.pth.tar')
 config_file = os.path.join(embedded_model_folder, 'config.json')
-config = create_argparser().parse_args()
-
-if config.tts_checkpoint is None and config.tts_config is None:
-    print(f" >  Loading default server model from {embedded_model_folder}.")
-    # Use default config with embedded model files
-    config.tts_checkpoint = checkpoint_file
-    config.tts_config = config_file
-synthesizer = Synthesizer(config)
 
 app = Flask(__name__)
 
@@ -57,9 +48,14 @@ def tts():
 
 if __name__ == '__main__':
     args = create_argparser().parse_args()
+    if args.tts_checkpoint is None and args.tts_config is None:
+        print(f" >  Loading default server model from {embedded_model_folder}.")
+        # Use default config with embedded model files
+        args.tts_checkpoint = checkpoint_file
+        args.tts_config = config_file
     # Setup synthesizer from CLI args if they're specified or no embedded model
     # is present.
-    if not config or not synthesizer or args.tts_checkpoint or args.tts_config:
+    if not synthesizer or args.tts_checkpoint or args.tts_config:
         synthesizer = Synthesizer(args)
     
-    app.run(debug=config.debug, host='0.0.0.0', port=config.port)
+    app.run(debug=args.debug, host='0.0.0.0', port=args.port)
