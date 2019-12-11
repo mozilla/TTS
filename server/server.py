@@ -57,5 +57,4 @@ if __name__ == '__main__':
     # is present.
     if not synthesizer or args.tts_checkpoint or args.tts_config:
         synthesizer = Synthesizer(args)
-    
     app.run(debug=args.debug, host='0.0.0.0', port=args.port)
