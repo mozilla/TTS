@@ -3,7 +3,7 @@ FROM nvidia/cuda:9.0-base-ubuntu16.04 as base
 WORKDIR /srv/app
 
 RUN apt-get update && \
-	apt-get install -y git software-properties-common wget vim build-essential libsndfile1 && \
+	apt-get install -y git software-properties-common wget vim build-essential libsndfile1 espeak && \
 	add-apt-repository ppa:deadsnakes/ppa && \
 	apt-get update && \
 	apt-get install -y python3.6 python3.6-dev python3.6-tk && \
