@@ -9,7 +9,7 @@ Instructions below are based on a Ubuntu 18.04 machine, but it should be simple 
 1. apt-get install -y espeak libsndfile1 python3-venv
 2. python3 -m venv /tmp/venv
 3. source /tmp/venv/bin/activate
-4. pip install -U pip setuptools wheel
+4. pip install -U pip setuptools wheel h5py
 5. pip install -U https//example.com/url/to/python/package.whl
 6. python -m TTS.server.server
 
