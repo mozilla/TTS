@@ -7,7 +7,7 @@ import string
 
 from TTS.utils.synthesis import synthesis
 from TTS.utils.generic_utils import load_config, setup_model
-from TTS.utils.text.symbols import symbols, phonemes
+from TTS.utils.text.symbols import make_symbols, symbols, phonemes
 from TTS.utils.audio import AudioProcessor
 
 
@@ -46,6 +46,7 @@ def tts(model,
 
 
 if __name__ == "__main__":
+    global symbols, phonemes
 
     parser = argparse.ArgumentParser()
     parser.add_argument('text', type=str, help='Text to generate speech.')
@@ -103,6 +104,10 @@ if __name__ == "__main__":
 
     # load the audio processor
     ap = AudioProcessor(**C.audio)
+
+    # if the vocabulary was passed, replace the default
+    if 'text' in C.keys():
+        symbols, phonemes =  make_symbols(**C.text)
 
     # load speakers
     if args.speakers_json != '':

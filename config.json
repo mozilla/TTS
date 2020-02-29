@@ -1,7 +1,7 @@
 {
     "model": "Tacotron2",          // one of the model in models/  
     "run_name": "ljspeech-graves",
-    "run_description": "tacotron2 wuth graves attention",
+    "run_description": "tacotron2 with graves attention",
 
     // AUDIO PARAMETERS
     "audio":{
@@ -24,6 +24,16 @@
         "mel_fmin": 0.0,         // minimum freq level for mel-spec. ~50 for male and ~95 for female voices. Tune for dataset!!
         "mel_fmax": 8000.0,        // maximum freq level for mel-spec. Tune for dataset!!
         "do_trim_silence": true  // enable trimming of slience of audio as you load it. LJspeech (false), TWEB (false), Nancy (true)
+    },
+    
+    // VOCABULARY PARAMETERS
+    "text":{
+        "pad": "_",
+        "eos": "~",
+        "bos": "^",
+        "characters": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!'(),-.:;? ",//
+        "punctuations":"!'(),-.:;? ",// 
+        "phonemes":"iyɨʉɯuɪʏʊeøɘəɵɤoɛœɜɞʌɔæɐaɶɑɒᵻʘɓǀɗǃʄǂɠǁʛpbtdʈɖcɟkɡqɢʔɴŋɲɳnɱmʙrʀⱱɾɽɸβfvθðszʃʒʂʐçʝxɣχʁħʕhɦɬɮʋɹɻjɰlɭʎʟˈˌːˑʍwɥʜʢʡɕʑɺɧɚ˞ɫ"//
     },
 
     // DISTRIBUTED TRAINING

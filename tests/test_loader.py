@@ -37,6 +37,7 @@ class TestTTSDataset(unittest.TestCase):
             r,
             c.text_cleaner,
             ap=self.ap,
+            tp=c.text if 'text' in c.keys() else None,
             meta_data=items, 
             batch_group_size=bgs,
             min_seq_len=c.min_seq_len,
