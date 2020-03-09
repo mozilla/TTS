@@ -74,7 +74,6 @@ def mozilla(root_path, meta_file):
             items.append([text, wav_file, speaker_name])
     return items
 
-
 def mozilla_de(root_path, meta_file):
     """Normalizes Mozilla meta data files to TTS format"""
     txt_file = os.path.join(root_path, meta_file)
@@ -187,3 +186,20 @@ def libri_tts(root_path, meta_files=None):
     for item in items:
         assert os.path.exists(item[1]), f" [!] wav file is not exist - {item[1]}"
     return items
+
+# ToDo: add the dataset link when the dataset is released publicly
+def brspeech(root_path, meta_file):
+    '''BRSpeech 2.0 beta'''
+    txt_file = os.path.join(root_path, meta_file)
+    items = []
+    with open(txt_file, 'r') as ttf:
+        for line in ttf:
+            if line.startswith("wav_filename"):
+                continue
+            cols = line.split(',')
+            wav_file = os.path.join(root_path, cols[0])
+            text = cols[2]
+            speaker_name = cols[3]
+            items.append([text, wav_file, speaker_name])
+    return items
+

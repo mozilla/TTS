@@ -11,6 +11,7 @@ class Tacotron(nn.Module):
     def __init__(self,
                  num_chars,
                  num_speakers,
+                 speaker_embedding_dim=256,
                  r=5,
                  postnet_output_dim=1025,
                  decoder_output_dim=80,
@@ -55,7 +56,7 @@ class Tacotron(nn.Module):
                                      postnet_output_dim)
         # speaker embedding layers
         if num_speakers > 1:
-            self.speaker_embedding = nn.Embedding(num_speakers, 256)
+            self.speaker_embedding = nn.Embedding(num_speakers, speaker_embedding_dim)
             self.speaker_embedding.weight.data.normal_(0, 0.3)
             self.speaker_project_mel = nn.Sequential(
                 nn.Linear(256, proj_speaker_dim), nn.Tanh())

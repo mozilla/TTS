@@ -532,6 +532,8 @@ def main(args):  # pylint: disable=redefined-outer-name
     # load data instances
     meta_data_train, meta_data_eval = load_meta_data(c.datasets)
 
+    speaker_embedding_dim = None
+
     # parse speakers
     if c.use_speaker_embedding:
         speakers = get_speakers(meta_data_train)
@@ -542,16 +544,23 @@ def main(args):  # pylint: disable=redefined-outer-name
                         for speaker in speakers]), "As of now you, you cannot " \
                                                    "introduce new speakers to " \
                                                    "a previously trained model."
+        elif c.speaker_embedding_file:
+            speaker_mapping = load_speaker_mapping(c.speaker_embedding_file)
+            assert all([speaker in speaker_mapping
+                        for speaker in speakers]), "In the datasets there are " \
+                                                   "speakers who are not present " \
+                                                   "in speaker_mapping (speakers.json)."
         else:
             speaker_mapping = {name: i for i, name in enumerate(speakers)}
         save_speaker_mapping(OUT_PATH, speaker_mapping)
         num_speakers = len(speaker_mapping)
+        speaker_embedding_dim = len(speaker_mapping[speakers[0]])
         print("Training with {} speakers: {}".format(num_speakers,
                                                      ", ".join(speakers)))
     else:
         num_speakers = 0
 
-    model = setup_model(num_chars, num_speakers, c)
+    model = setup_model(num_chars, num_speakers, c, speaker_embedding_dim)
 
     print(" | > Num output units : {}".format(ap.num_freq), flush=True)
 

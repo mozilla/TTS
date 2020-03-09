@@ -278,7 +278,7 @@ def set_init_dict(model_dict, checkpoint, c):
     return model_dict
 
 
-def setup_model(num_chars, num_speakers, c):
+def setup_model(num_chars, num_speakers, c, speaker_embedding_dim=256):
     print(" > Using model: {}".format(c.model))
     MyModel = importlib.import_module('TTS.models.' + c.model.lower())
     MyModel = getattr(MyModel, c.model)
@@ -286,6 +286,7 @@ def setup_model(num_chars, num_speakers, c):
         model = MyModel(num_chars=num_chars,
                         num_speakers=num_speakers,
                         r=c.r,
+                        speaker_embedding_dim=speaker_embedding_dim,
                         postnet_output_dim=c.audio['num_freq'],
                         decoder_output_dim=c.audio['num_mels'],
                         gst=c.use_gst,
@@ -306,6 +307,7 @@ def setup_model(num_chars, num_speakers, c):
         model = MyModel(num_chars=num_chars,
                         num_speakers=num_speakers,
                         r=c.r,
+                        speaker_embedding_dim=speaker_embedding_dim,
                         postnet_output_dim=c.audio['num_mels'],
                         decoder_output_dim=c.audio['num_mels'],
                         attn_type=c.attention_type,
