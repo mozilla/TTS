@@ -35,7 +35,7 @@ If you are new, you can also find [here](http://www.erogol.com/text-speech-deep-
    1. Optional: Create a new python environment to run your server, with: `virtualenv -p python3 tacotron2`, whereas "tacetron" is a directory name that you can choose. Then, go into the new python environment: `cd tacotron2; source bin/activate`. Alternatively, you may re-use the environment in your source directory. Note: You need to call `source bin/activate` every time you open a new console.
    2. Install the server and model package that you just created in step 2.: `pip install ../TTS/dist/TTS-0.0.1+4f61539-py3-none-any.whl` (your filename will differ)
    3. Run the server: `python -m TTS.server.server`
-   4. Open [http://localhost:5002] in your browser.
+   4. Open [http://localhost:5002](http://localhost:5002) in your browser.
 
 ## Dependencies
 For development, we highly recommend to use [miniconda](https://conda.io/miniconda.html) for easier installation.
