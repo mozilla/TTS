@@ -18,10 +18,27 @@ If you are new, you can also find [here](http://www.erogol.com/text-speech-deep-
 - Deep Learning based Text2Speech model.
 - ```dataset_analysis```: Tools to curate a Text2Speech dataset.
 - ```speaker_encoder```: Speaker Encoder model computing embedding vectors for voice files.
-- ```server```: Basic server implementation with packaging. 
+- ```server```: Basic server implementation with packaging.
 
-## Requirements and Installation
-Highly recommended to use [miniconda](https://conda.io/miniconda.html) for easier installation.
+## Build instructions
+
+1. Download the model
+   1. Choose a model from [our generated TTS models](https://github.com/mozilla/TTS/wiki/Released-Models). You may listen to the audio samples to help you choose. If in doubt, choose the newest, that is the last in the list.
+   2. Click on the link in the column "TTS models". This will be a download page, e.g. Google drive. Download the .tar file with the highest number and use it as "checkpoint" file in step 2. Also, download the config.json and use it as "model config".
+2. Build the package with the server and model
+    1. Check out the source code from mozilla/TTS: `git clone git@github.com:mozilla/TTS.git`. If you chose an older model in step 1.1., you need to check out the corresponding server source code, from the column "commit".
+    2. Create a python environment for the build: `cd TTS; virtualenv -p python3 . ; source bin/activate`
+    3. Run `python setup.py bdist_wheel --checkpoint /path/to/checkpoint.tar --model_config /path/to/config.json`, with the model files that you downloaded in step 1.2.
+    4. This will create a new WHL in dist/ . This is a Python wheel package that contains both the server and the model.
+    5. `cd ..`
+3. Install and run the server
+   1. Optional: Create a new python environment to run your server, with: `virtualenv -p python3 tacotron2`, whereas "tacetron" is a directory name that you can choose. Then, go into the new python environment: `cd tacotron2; source bin/activate`. Alternatively, you may re-use the environment in your source directory. Note: You need to call `source bin/activate` every time you open a new console.
+   2. Install the server and model package that you just created in step 2.: `pip install ../TTS/dist/TTS-0.0.1+4f61539-py3-none-any.whl` (your filename will differ)
+   3. Run the server: `python -m TTS.server.server`
+   4. Open [http://localhost:5002] in your browser.
+
+## Dependencies
+For development, we highly recommend to use [miniconda](https://conda.io/miniconda.html) for easier installation.
   * python>=3.6
   * pytorch>=0.4.1
   * librosa
