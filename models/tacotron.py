@@ -2,6 +2,7 @@
 import torch
 import copy
 from torch import nn
+import numpy as np
 from TTS.layers.tacotron import Encoder, Decoder, PostCBHG
 from TTS.utils.generic_utils import sequence_mask
 from TTS.layers.gst_layers import GST
@@ -12,6 +13,7 @@ class Tacotron(nn.Module):
                  num_chars,
                  num_speakers,
                  speaker_embedding_dim=256,
+                 speaker_embedding_weights=None,
                  r=5,
                  postnet_output_dim=1025,
                  decoder_output_dim=80,
@@ -36,8 +38,8 @@ class Tacotron(nn.Module):
         self.gst = gst
         self.num_speakers = num_speakers
         self.bidirectional_decoder = bidirectional_decoder
-        decoder_dim = 512 if num_speakers > 1 else 256
-        encoder_dim = 512 if num_speakers > 1 else 256
+        decoder_dim = 256+speaker_embedding_dim if num_speakers > 1 else 256
+        encoder_dim = 256+speaker_embedding_dim if num_speakers > 1 else 256
         proj_speaker_dim = 80 if num_speakers > 1 else 0
         # embedding layer
         self.embedding = nn.Embedding(num_chars, 256, padding_idx=0)
@@ -56,10 +58,14 @@ class Tacotron(nn.Module):
                                      postnet_output_dim)
         # speaker embedding layers
         if num_speakers > 1:
-            self.speaker_embedding = nn.Embedding(num_speakers, speaker_embedding_dim)
-            self.speaker_embedding.weight.data.normal_(0, 0.3)
+            if speaker_embedding_weights:
+                self.speaker_embedding= nn.Embedding.from_pretrained(torch.FloatTensor(speaker_embedding_weights))
+            else:
+                self.speaker_embedding = nn.Embedding(num_speakers, speaker_embedding_dim)
+                self.speaker_embedding.weight.data.normal_(0, 0.3)
+
             self.speaker_project_mel = nn.Sequential(
-                nn.Linear(256, proj_speaker_dim), nn.Tanh())
+                nn.Linear(speaker_embedding_dim, proj_speaker_dim), nn.Tanh())
             self.speaker_embeddings = None
             self.speaker_embeddings_projected = None
         # global style token layers

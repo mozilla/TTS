@@ -33,3 +33,13 @@ def get_speakers(items):
     """Returns a sorted, unique list of speakers in a given dataset."""
     speakers = {e[2] for e in items}
     return sorted(speakers)
+
+
+def get_speakers_embedding(speaker_mapping):
+    """Returns the list of embeddings of all speakers present on speaker_mapping"""
+    return [speaker_mapping[speaker]['embedding'] for speaker in speaker_mapping]
+
+
+def get_speakers_id(speaker_mapping,speaker_names):
+    """Returns the list of ids of all speakers present on speakers_names"""
+    return [speaker_mapping[speaker_name]['id'] for speaker_name in speaker_names]       

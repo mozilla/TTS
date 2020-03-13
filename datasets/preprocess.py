@@ -197,6 +197,7 @@ def brspeech(root_path, meta_file):
             if line.startswith("wav_filename"):
                 continue
             cols = line.split(',')
+            #print(cols)
             wav_file = os.path.join(root_path, cols[0])
             text = cols[2]
             speaker_name = cols[3]

@@ -12,7 +12,6 @@ class Tacotron2(nn.Module):
                  num_chars,
                  num_speakers,
                  r,
-                 speaker_embedding_dim=256,
                  postnet_output_dim=80,
                  decoder_output_dim=80,
                  attn_type='original',
@@ -41,7 +40,7 @@ class Tacotron2(nn.Module):
         val = sqrt(3.0) * std  # uniform bounds for std
         self.embedding.weight.data.uniform_(-val, val)
         if num_speakers > 1:
-            self.speaker_embedding = nn.Embedding(num_speakers, speaker_embedding_dim)
+            self.speaker_embedding = nn.Embedding(num_speakers, 512)
             self.speaker_embedding.weight.data.normal_(0, 0.3)
             self.speaker_embeddings = None
             self.speaker_embeddings_projected = None
