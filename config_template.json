@@ -1,7 +1,7 @@
 {
     "model": "Tacotron2",          // one of the model in models/  
-    "run_name": "ljspeech",
-    "run_description": "tacotron2 with guided attention and -1 1 normalization and no preemphasis",
+    "run_name": "ljspeech-stft_params",
+    "run_description": "tacotron2 cosntant stf parameters",
 
     // AUDIO PARAMETERS
     "audio":{
@@ -116,7 +116,6 @@
 
     // MULTI-SPEAKER and GST
     "use_speaker_embedding": false,     // use speaker embedding to enable multi-speaker learning.
-    "speaker_embedding_file": null,     // load specific embedding file
     "style_wav_for_test": null,          // path to style wav file to be used in TacotronGST inference.
     "use_gst": false,       // TACOTRON ONLY: use global style tokens
 
