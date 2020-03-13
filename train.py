@@ -380,13 +380,6 @@ def evaluate(model, criterion, ap, global_step, epoch):
             align_score = alignment_diagonal_score(alignments)
             keep_avg.update_value('avg_align_score', align_score)
 
-            # aggregate losses from processes
-            if num_gpus > 1:
-                postnet_loss = reduce_tensor(postnet_loss.data, num_gpus)
-                decoder_loss = reduce_tensor(decoder_loss.data, num_gpus)
-                if c.stopnet:
-                    stop_loss = reduce_tensor(stop_loss.data, num_gpus)
-
             keep_avg.update_values({
                 'avg_postnet_loss':
                 float(loss_dict['postnet_loss'].item()),
