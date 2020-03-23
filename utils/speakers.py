@@ -12,7 +12,7 @@ def make_speakers_json_path(out_path):
 def load_speaker_mapping(out_path):
     """Loads speaker mapping if already present."""
     try:
-        if os.path.splitext(out_path) == '.json':
+        if os.path.splitext(out_path)[1] == '.json':
             json_file = out_path
         else: 
             json_file = make_speakers_json_path(out_path)

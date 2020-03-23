@@ -9,6 +9,7 @@ import string
 from TTS.utils.synthesis import synthesis
 from TTS.utils.generic_utils import load_config, setup_model
 from TTS.utils.text.symbols import make_symbols, symbols, phonemes
+from TTS.utils.speakers import load_speaker_mapping, get_speakers_embedding
 from TTS.utils.audio import AudioProcessor
 
 
@@ -113,14 +114,16 @@ if __name__ == "__main__":
 
     # load speakers
     if args.speakers_json != '':
-        speakers = json.load(open(args.speakers_json, 'r'))
-        num_speakers = len(speakers)
+        speaker_mapping = load_speaker_mapping(args.speakers_json)
+        speaker_embedding_weights = get_speakers_embedding(speaker_mapping) 
+        speaker_embedding_dim = len(speaker_mapping[list(speaker_mapping.keys())[0]]['embedding'])
+        num_speakers = len(speaker_mapping)
     else:
         num_speakers = 0
 
     # load the model
     num_chars = len(phonemes) if C.use_phonemes else len(symbols)
-    model = setup_model(num_chars, num_speakers, C)
+    model = setup_model(num_chars, num_speakers, C, speaker_embedding_dim, speaker_embedding_weights)
     cp = torch.load(args.model_path)
     model.load_state_dict(cp['model'])
     model.eval()
