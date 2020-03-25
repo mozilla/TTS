@@ -285,6 +285,7 @@ def setup_model(num_chars, num_speakers, c):
     if c.model.lower() in "tacotron":
         model = MyModel(num_chars=num_chars,
                         num_speakers=num_speakers,
+                        external_embeddings=external_embeddings,
                         r=c.r,
                         postnet_output_dim=c.audio['num_freq'],
                         decoder_output_dim=c.audio['num_mels'],
@@ -319,7 +320,8 @@ def setup_model(num_chars, num_speakers, c):
                         location_attn=c.location_attn,
                         attn_K=c.attention_heads,
                         separate_stopnet=c.separate_stopnet,
-                        bidirectional_decoder=c.bidirectional_decoder)
+                        bidirectional_decoder=c.bidirectional_decoder,
+                        external_embeddings=c.external_embeddings)
     return model
 
 

@@ -11,6 +11,7 @@ class Tacotron2(nn.Module):
     def __init__(self,
                  num_chars,
                  num_speakers,
+                 external_embeddings,
                  r,
                  postnet_output_dim=80,
                  decoder_output_dim=80,
@@ -40,8 +41,15 @@ class Tacotron2(nn.Module):
         val = sqrt(3.0) * std  # uniform bounds for std
         self.embedding.weight.data.uniform_(-val, val)
         if num_speakers > 1:
-            self.speaker_embedding = nn.Embedding(num_speakers, 512)
-            self.speaker_embedding.weight.data.normal_(0, 0.3)
+            if not external_embeddings:
+              print('Not using external embeddings')
+              self.speaker_embedding = nn.Embedding(num_speakers, 512)
+              self.speaker_embedding.weight.data.normal_(0, 0.3)
+            elif external_embeddings:
+              print('Using external embeddings')
+              weight = torch.FloatTensor([external_embeddings])
+              self.speaker_embedding = torch.nn.Embedding.from_pretrained(weight)
+              self.speaker_embedding.weight.requires_grad = False
             self.speaker_embeddings = None
             self.speaker_embeddings_projected = None
         self.encoder = Encoder(encoder_dim)
@@ -122,6 +130,8 @@ class Tacotron2(nn.Module):
     def _add_speaker_embedding(self, encoder_outputs, speaker_ids):
         if hasattr(self, "speaker_embedding") and speaker_ids is None:
             raise RuntimeError(" [!] Model has speaker embedding layer but speaker_id is not provided")
+        #if not hasattr(self, "speaker_embedding"):
+            #print(external_embeddings)
         if hasattr(self, "speaker_embedding") and speaker_ids is not None:
             speaker_embeddings = self.speaker_embedding(speaker_ids)
 

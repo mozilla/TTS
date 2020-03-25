@@ -89,6 +89,10 @@ if __name__ == "__main__":
                         type=str,
                         help="JSON file for multi-speaker model.",
                         default="")
+    parser.add_argument('--external_embeddings',
+                        type=str,
+                        help="TXT file of external embeddings for speaker adaptation.",
+                        default="")
     parser.add_argument(
         '--speaker_id',
         type=int,
@@ -118,10 +122,16 @@ if __name__ == "__main__":
     else:
         num_speakers = 0
 
+    if args.external_embeddings != "":
+        external_embeddings = open(args.external_embeddings, 'r').read()
+        external_embeddings = external_embeddings.split(',')
+        external_embeddings =[float(i) for i in external_embeddings]
+        C.external_embeddings = external_embeddings
+
     # load the model
     num_chars = len(phonemes) if C.use_phonemes else len(symbols)
     model = setup_model(num_chars, num_speakers, C)
-    cp = torch.load(args.model_path)
+    cp = torch.load(args.model_path,map_location=torch.device('cpu'))
     model.load_state_dict(cp['model'])
     model.eval()
     if args.use_cuda:
