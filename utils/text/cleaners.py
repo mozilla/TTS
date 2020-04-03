@@ -68,11 +68,14 @@ def remove_aux_symbols(text):
     return text
 
 
-def replace_symbols(text):
+def replace_symbols(text, lang='en'):
     text = text.replace(';', ',')
     text = text.replace('-', ' ')
     text = text.replace(':', ' ')
-    text = text.replace('&', 'and')
+    if lang == 'en':
+        text = text.replace('&', 'and')
+    elif lang == 'pt':
+        text = text.replace('&', ' e ')
     return text
 
 
@@ -87,6 +90,15 @@ def transliteration_cleaners(text):
     '''Pipeline for non-English text that transliterates to ASCII.'''
     text = convert_to_ascii(text)
     text = lowercase(text)
+    text = collapse_whitespace(text)
+    return text
+
+def portuguese_cleaners(text):
+    '''Basic pipeline for Portuguese text. There is no need to expand abbreviation and 
+        numbers, phonemizer already does that'''
+    text = lowercase(text)
+    text = replace_symbols(text,lang='pt')
+    text = remove_aux_symbols(text)
     text = collapse_whitespace(text)
     return text
 
