@@ -47,7 +47,7 @@ def setup_loader(ap, r, is_val=False, verbose=False):
         dataset = MyDataset(
             r,
             c.text_cleaner,
-            compute_linear_spec=True if c.model in ["Tacotron"] else  False,
+            compute_linear_spec=True if c.model in ["Tacotron"] else False,
             meta_data=meta_data_eval if is_val else meta_data_train,
             ap=ap,
             tp=c.characters if 'characters' in c.keys() else None,
@@ -709,12 +709,11 @@ if __name__ == '__main__':
         os.chmod(AUDIO_PATH, 0o775)
         os.chmod(OUT_PATH, 0o775)
 
-    if args.rank == 0:
         LOG_DIR = OUT_PATH
         tb_logger = Logger(LOG_DIR)
 
-    # write model desc to tensorboard
-    tb_logger.tb_add_text('model-description', c['run_description'], 0)
+        # write model desc to tensorboard
+        tb_logger.tb_add_text('model-description', c['run_description'], 0)
 
     try:
         main(args)
