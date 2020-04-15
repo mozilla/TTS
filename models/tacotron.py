@@ -59,7 +59,7 @@ class Tacotron(nn.Module):
         # speaker embedding layers
         if num_speakers > 1:
             if speaker_embedding_weights:
-                self.speaker_embedding= nn.Embedding.from_pretrained(torch.FloatTensor(speaker_embedding_weights))
+                self.speaker_embedding = nn.Embedding.from_pretrained(torch.FloatTensor(speaker_embedding_weights))
             else:
                 self.speaker_embedding = nn.Embedding(num_speakers, speaker_embedding_dim)
                 self.speaker_embedding.weight.data.normal_(0, 0.3)

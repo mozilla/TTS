@@ -36,9 +36,11 @@ class Tacotron2(nn.Module):
         self.bidirectional_decoder = bidirectional_decoder
         decoder_dim = 512+speaker_embedding_dim if num_speakers > 1 else 512
         encoder_dim = 512 if num_speakers > 1 else 512
-        ''' if encoder receive speaker embedding 
+        '''
+        # if encoder receive speaker embedding
         decoder_dim = 512+speaker_embedding_dim*2 if num_speakers > 1 else 512
-        encoder_dim = 512+speaker_embedding_dim  if num_speakers > 1 else 512'''
+        encoder_dim = 512+speaker_embedding_dim  if num_speakers > 1 else 512
+        '''
         proj_speaker_dim = 80 if num_speakers > 1 else 0
         # embedding layer
         self.embedding = nn.Embedding(num_chars, 512, padding_idx=0)
@@ -47,7 +49,7 @@ class Tacotron2(nn.Module):
         self.embedding.weight.data.uniform_(-val, val)
         if num_speakers > 1:
             if speaker_embedding_weights:
-                self.speaker_embedding= nn.Embedding.from_pretrained(torch.FloatTensor(speaker_embedding_weights))
+                self.speaker_embedding = nn.Embedding.from_pretrained(torch.FloatTensor(speaker_embedding_weights))
             else:
                 self.speaker_embedding = nn.Embedding(num_speakers, speaker_embedding_dim)
                 self.speaker_embedding.weight.data.normal_(0, 0.3)
@@ -181,7 +183,7 @@ class Tacotron2(nn.Module):
     @staticmethod
     def _concat_speaker_embedding(outputs, speaker_embeddings):
         speaker_embeddings_ = speaker_embeddings.expand(
-            outputs.size(0), outputs.size(1), -1)    
+            outputs.size(0), outputs.size(1), -1)
         outputs = torch.cat([outputs, speaker_embeddings_], dim=-1)
         return outputs
 

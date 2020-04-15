@@ -14,7 +14,7 @@ def load_speaker_mapping(out_path):
     try:
         if os.path.splitext(out_path)[1] == '.json':
             json_file = out_path
-        else: 
+        else:
             json_file = make_speakers_json_path(out_path)
         with open(json_file) as f:
             return json.load(f)
@@ -40,6 +40,6 @@ def get_speakers_embedding(speaker_mapping):
     return [speaker_mapping[speaker]['embedding'] for speaker in speaker_mapping]
 
 
-def get_speakers_id(speaker_mapping,speaker_names):
+def get_speakers_id(speaker_mapping, speaker_names):
     """Returns the list of ids of all speakers present on speakers_names"""
     return [speaker_mapping[speaker_name]['id'] for speaker_name in speaker_names]       

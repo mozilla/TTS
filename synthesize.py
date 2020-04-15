@@ -115,7 +115,7 @@ if __name__ == "__main__":
     # load speakers
     if args.speakers_json != '':
         speaker_mapping = load_speaker_mapping(args.speakers_json)
-        speaker_embedding_weights = get_speakers_embedding(speaker_mapping) 
+        speaker_embedding_weights = get_speakers_embedding(speaker_mapping)
         speaker_embedding_dim = len(speaker_mapping[list(speaker_mapping.keys())[0]]['embedding'])
         num_speakers = len(speaker_mapping)
     else:

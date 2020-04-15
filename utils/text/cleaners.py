@@ -94,10 +94,10 @@ def transliteration_cleaners(text):
     return text
 
 def portuguese_cleaners(text):
-    '''Basic pipeline for Portuguese text. There is no need to expand abbreviation and 
+    '''Basic pipeline for Portuguese text. There is no need to expand abbreviation and
         numbers, phonemizer already does that'''
     text = lowercase(text)
-    text = replace_symbols(text,lang='pt')
+    text = replace_symbols(text, lang='pt')
     text = remove_aux_symbols(text)
     text = collapse_whitespace(text)
     return text

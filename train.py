@@ -541,12 +541,11 @@ def main(args):  # pylint: disable=redefined-outer-name
                                                    "in speaker_mapping (speakers.json)."
         else:
             speaker_mapping = {name: {'id': i, 'embedding':None} for i, name in enumerate(speakers)}
-            
-            
+
         save_speaker_mapping(OUT_PATH, speaker_mapping)
         num_speakers = len(speaker_mapping)
 
-        if isinstance(speaker_mapping[speakers[0]],dict):
+        if isinstance(speaker_mapping[speakers[0]], dict):
             speaker_embedding_weights = get_speakers_embedding(speaker_mapping) if speaker_mapping[speakers[0]]['embedding'] is not None else None
             speaker_embedding_dim = len(speaker_mapping[speakers[0]]['embedding']) if speaker_mapping[speakers[0]]['embedding'] is not None else 256
         else: # its necessary for old version compatibility
