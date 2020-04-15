@@ -116,7 +116,7 @@ class Decoder(nn.Module):
         self.p_decoder_dropout = 0.1
 
         # memory -> |Prenet| -> processed_memory
-        prenet_dim = self.memory_dim
+        prenet_dim = self.memory_dim + speaker_embedding_dim
         self.prenet = Prenet(
             prenet_dim,
             prenet_type,
@@ -252,16 +252,14 @@ class Decoder(nn.Module):
         memories = self._reshape_memory(memories)
         memories = torch.cat((memory, memories), dim=0)
         memories = self._update_memory(memories)
-        if speaker_embeddings is not None:
-            memories = torch.cat([memories, speaker_embeddings], dim=-1)
-        memories = self.prenet(memories)
-
         self._init_states(inputs, mask=mask)
         self.attention.init_states(inputs)
-
         outputs, stop_tokens, alignments = [], [], []
         while len(outputs) < memories.size(0) - 1:
             memory = memories[len(outputs)]
+            if speaker_embeddings is not None:
+                memory = torch.cat([memory, speaker_embeddings], dim=-1)
+                memory = self.prenet(memory)
             decoder_output, attention_weights, stop_token = self.decode(memory)
             outputs += [decoder_output.squeeze(1)]
             stop_tokens += [stop_token.squeeze(1)]

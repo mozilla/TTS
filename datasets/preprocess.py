@@ -196,7 +196,7 @@ def brspeech(root_path, meta_file):
         for line in ttf:
             if line.startswith("wav_filename"):
                 continue
-            cols = line.split(',')
+            cols = line.split('|')
             #print(cols)
             wav_file = os.path.join(root_path, cols[0])
             text = cols[2]
