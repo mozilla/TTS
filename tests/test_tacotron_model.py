@@ -161,9 +161,9 @@ class TacotronExternalEmbeddingsTrainTest(unittest.TestCase):
         stop_targets = torch.zeros(8, 30, 1).float().to(device)
 
         num_speakers = 5
-        speaker_ids = torch.randint(0, num_speakers, (8, )).long().to(device)
         speaker_embedding_dim = 256
         speaker_embedding_weights = torch.randint(-100, 100, (num_speakers, speaker_embedding_dim)).cpu().detach().numpy().tolist()
+        speaker_ids = torch.randint(0, num_speakers, (8, )).long().to(device)
 
         for idx in mel_lengths:
             stop_targets[:, int(idx.item()):, 0] = 1.0
@@ -211,6 +211,10 @@ class TacotronExternalEmbeddingsTrainTest(unittest.TestCase):
                                     model_ref.parameters()):
             # ignore pre-higway layer since it works conditional
             # if count not in [145, 59]:
+            # ignore freeze layers
+            if not param.requires_grad:
+                continue
+
             assert (param != param_ref).any(
             ), "param {} with shape {} not updated!! \n{}\n{}".format(
                 count, param.shape, param, param_ref)
