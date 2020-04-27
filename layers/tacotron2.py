@@ -259,7 +259,7 @@ class Decoder(nn.Module):
             memory = memories[len(outputs)]
             if speaker_embeddings is not None:
                 memory = torch.cat([memory, speaker_embeddings], dim=-1)
-                memory = self.prenet(memory)
+            memory = self.prenet(memory)
             decoder_output, attention_weights, stop_token = self.decode(memory)
             outputs += [decoder_output.squeeze(1)]
             stop_tokens += [stop_token.squeeze(1)]
