@@ -186,7 +186,7 @@ def libri_tts(root_path, meta_files=None):
     for item in items:
         assert os.path.exists(item[1]), f" [!] wav file is not exist - {item[1]}"
     return items
- 
+
 # ToDo: add the dataset link when the dataset is released publicly
 def brspeech(root_path, meta_file):
     '''BRSpeech 2.0 beta'''
