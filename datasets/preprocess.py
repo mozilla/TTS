@@ -186,7 +186,7 @@ def libri_tts(root_path, meta_files=None):
     for item in items:
         assert os.path.exists(item[1]), f" [!] wav file is not exist - {item[1]}"
     return items
-
+ 
 # ToDo: add the dataset link when the dataset is released publicly
 def brspeech(root_path, meta_file):
     '''BRSpeech 2.0 beta'''
@@ -204,3 +204,19 @@ def brspeech(root_path, meta_file):
             items.append([text, wav_file, speaker_name])
     return items
 
+def custom_turkish(root_path, meta_file):
+    txt_file = os.path.join(root_path, meta_file)
+    items = []
+    speaker_name = "turkish-female"
+    skipped_files = []
+    with open(txt_file, 'r', encoding='utf-8') as ttf:
+        for line in ttf:
+            cols = line.split('|')
+            wav_file = os.path.join(root_path, 'wavs', cols[0].strip() + '.wav')
+            if not os.path.exists(wav_file):
+                skipped_files.append(wav_file)
+                continue
+            text = cols[1].strip()
+            items.append([text, wav_file, speaker_name])
+    print(f" [!] {len(skipped_files)} files skipped. They are not exist...")
+    return items

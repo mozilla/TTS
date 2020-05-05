@@ -113,7 +113,7 @@ def save_checkpoint(model, optimizer, optimizer_st, model_loss, out_path,
                     current_step, epoch):
     checkpoint_path = 'checkpoint_{}.pth.tar'.format(current_step)
     checkpoint_path = os.path.join(out_path, checkpoint_path)
-    print(" | | > Checkpoint saving : {}".format(checkpoint_path))
+    print(" > CHECKPOINT : {}".format(checkpoint_path))
 
     new_state_dict = model.state_dict()
     state = {
@@ -144,7 +144,7 @@ def save_best_model(model, optimizer, model_loss, best_loss, out_path,
         best_loss = model_loss
         bestmodel_path = 'best_model.pth.tar'
         bestmodel_path = os.path.join(out_path, bestmodel_path)
-        print("\n > BEST MODEL ({0:.5f}) : {1:}".format(
+        print(" > BEST MODEL ({0:.5f}) : {1:}".format(
             model_loss, bestmodel_path))
         torch.save(state, bestmodel_path)
     return best_loss
@@ -157,7 +157,7 @@ def check_update(model, grad_clip, ignore_stopnet=False):
         grad_norm = torch.nn.utils.clip_grad_norm_([param for name, param in model.named_parameters() if 'stopnet' not in name], grad_clip)
     else:
         grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
-    if np.isinf(grad_norm):
+    if np.isinf(grad_norm.cpu()):
         print(" | > Gradient is INF !!")
         skip_flag = True
     return grad_norm, skip_flag
@@ -372,6 +372,9 @@ class KeepAverage():
     def __getitem__(self, key):
         return self.avg_values[key]
 
+    def items(self):
+        return self.avg_values.items()
+
     def add_value(self, name, init_val=0, init_iter=0):
         self.avg_values[name] = init_val
         self.iters[name] = init_iter
@@ -409,6 +412,30 @@ def _check_argument(name, c, enum_list=None, max_val=None, min_val=None, restric
             assert c[name].lower() in enum_list, f' [!] {name} is not a valid value'
         if val_type:
             assert isinstance(c[name], val_type) or c[name] is None, f' [!] {name} has wrong type - {type(c[name])} vs {val_type}'
+
+
+tcolors = AttrDict({
+    'OKBLUE': '\033[94m',
+    'HEADER': '\033[95m',
+    'OKGREEN': '\033[92m',
+    'WARNING': '\033[93m',
+    'FAIL': '\033[91m',
+    'ENDC': '\033[0m',
+    'BOLD': '\033[1m',
+    'UNDERLINE': '\033[4m'
+})
+
+
+def print_train_step(batch_steps, step, global_step, avg_spec_length, avg_text_length, step_time, loader_time, lr, print_dict):
+    indent = "     | > "
+    print()
+    log_text = "{}   --> STEP: {}/{} -- GLOBAL_STEP: {}{}\n".format(tcolors.BOLD, step, batch_steps, global_step, tcolors.ENDC)
+    for key, value in print_dict.items():
+        log_text += "{}{}: {:.5f}\n".format(indent, key, value)
+    log_text += f"{indent}avg_spec_len: {avg_spec_length}\n{indent}avg_text_len: {avg_text_length}\
+        \n{indent}step_time: {step_time:.2f}\n{indent}loader_time: {loader_time:.2f}\n{indent}lr: {lr:.5f}"\
+        .format(indent, avg_spec_length, indent, avg_text_length, indent, step_time, indent, loader_time, indent, lr)
+    print(log_text, flush=True)
 
 
 def check_config(c):
@@ -500,7 +527,9 @@ def check_config(c):
     _check_argument('tb_model_param_stats', c, restricted=True, val_type=bool)
 
     # dataloading
-    _check_argument('text_cleaner', c, restricted=True, val_type=str, enum_list=['english_cleaners', 'portuguese_cleaners', 'phoneme_cleaners', 'transliteration_cleaners', 'basic_cleaners'])
+    # pylint: disable=import-outside-toplevel
+    from TTS.utils.text import cleaners
+    _check_argument('text_cleaner', c, restricted=True, val_type=str, enum_list=dir(cleaners))
     _check_argument('enable_eos_bos_chars', c, restricted=True, val_type=bool)
     _check_argument('num_loader_workers', c, restricted=True, val_type=int, min_val=0)
     _check_argument('num_val_loader_workers', c, restricted=True, val_type=int, min_val=0)
