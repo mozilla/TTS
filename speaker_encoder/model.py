@@ -84,5 +84,5 @@ class SpeakerEncoder(nn.Module):
                 embed[cur_iter <= num_iters, :] += self.inference(
                     frames[cur_iter <= num_iters, :, :]
                 )
-        return embed / num_iters
+        return embed / num_iters.unsqueeze(-1)
 
