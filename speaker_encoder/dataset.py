@@ -65,7 +65,7 @@ class MyDataset(Dataset):
 
         if self.skip_speakers:
             self.speaker_to_utters = {k: v for (k, v) in self.speaker_to_utters.items() if
-                                      len(v) >= self.num_utter_per_speaker or not self.skip_speakers}
+                                      len(v) >= self.num_utter_per_speaker}
 
         self.speakers = [k for (k, v) in self.speaker_to_utters]
 
