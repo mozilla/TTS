@@ -53,7 +53,7 @@ def setup_loader(ap, r, is_val=False, verbose=False):
             ap=ap,
             tp=c.characters if 'characters' in c.keys() else None,
             batch_group_size=0 if is_val else c.batch_group_size *
-            c.batch_size,
+                                              c.batch_size,
             min_seq_len=c.min_seq_len,
             max_seq_len=c.max_seq_len,
             phoneme_cache_path=c.phoneme_cache_path,
@@ -108,17 +108,17 @@ def format_data(data):
     if use_cuda:
         text_input = text_input.cuda(non_blocking=True)
         text_lengths = text_lengths.cuda(non_blocking=True)
-        mel_input = mel_input.cuda(non_blocking=True)
+        mel_input = mel_input.cuda(non_blocking=True) #.half()
         mel_lengths = mel_lengths.cuda(non_blocking=True)
-        linear_input = linear_input.cuda(non_blocking=True) if c.model in ["Tacotron"] else None
-        stop_targets = stop_targets.cuda(non_blocking=True)
+        linear_input = linear_input.cuda(non_blocking=True) if c.model in ["Tacotron"] else None #.half()
+        stop_targets = stop_targets.cuda(non_blocking=True) #.half()
         if speaker_ids is not None:
             speaker_ids = speaker_ids.cuda(non_blocking=True)
     return text_input, text_lengths, mel_input, mel_lengths, linear_input, stop_targets, speaker_ids, avg_text_length, avg_spec_length
 
 
 def train(model, criterion, optimizer, optimizer_st, scheduler,
-          ap, global_step, epoch):
+          ap, global_step, epoch, amp):
     data_loader = setup_loader(ap, model.decoder.r, is_val=False,
                                verbose=(epoch == 0))
     model.train()
@@ -149,7 +149,8 @@ def train(model, criterion, optimizer, optimizer_st, scheduler,
         start_time = time.time()
 
         # format data
-        text_input, text_lengths, mel_input, mel_lengths, linear_input, stop_targets, speaker_ids, avg_text_length, avg_spec_length = format_data(data)
+        text_input, text_lengths, mel_input, mel_lengths, linear_input, stop_targets, speaker_ids, avg_text_length, avg_spec_length = format_data(
+            data)
         loader_time = time.time() - end_time
 
         global_step += 1
@@ -172,9 +173,10 @@ def train(model, criterion, optimizer, optimizer_st, scheduler,
 
         # set the alignment lengths wrt reduction factor for guided attention
         if mel_lengths.max() % model.decoder.r != 0:
-            alignment_lengths = (mel_lengths + (model.decoder.r - (mel_lengths.max() % model.decoder.r))) // model.decoder.r
+            alignment_lengths = (mel_lengths + (
+                    model.decoder.r - (mel_lengths.max() % model.decoder.r))) // model.decoder.r
         else:
-            alignment_lengths = mel_lengths //  model.decoder.r
+            alignment_lengths = mel_lengths // model.decoder.r
 
         # compute loss
         loss_dict = criterion(postnet_output, decoder_output, mel_input,
@@ -190,7 +192,11 @@ def train(model, criterion, optimizer, optimizer_st, scheduler,
         # backward pass
         loss_dict['loss'].backward()
         optimizer, current_lr = adam_weight_decay(optimizer)
-        grad_norm, _ = check_update(model, c.grad_clip, ignore_stopnet=True)
+        if amp:
+            amp_opt_params = amp.master_params(optimizer)
+        else:
+            amp_opt_params = None
+        grad_norm, _ = check_update(model, c.grad_clip, ignore_stopnet=True, amp_opt_params=amp_opt_params)
         optimizer.step()
 
         # compute alignment error (the lower the better )
@@ -202,7 +208,11 @@ def train(model, criterion, optimizer, optimizer_st, scheduler,
         if c.separate_stopnet:
             loss_dict['stopnet_loss'].backward()
             optimizer_st, _ = adam_weight_decay(optimizer_st)
-            grad_norm_st, _ = check_update(model.decoder.stopnet, 1.0)
+            if amp:
+                amp_opt_params = amp.master_params(optimizer)
+            else:
+                amp_opt_params = None
+            grad_norm_st, _ = check_update(model.decoder.stopnet, 1.0, ignore_stopnet=False, amp_opt_params=amp_opt_params)
             optimizer_st.step()
         else:
             grad_norm_st = 0
@@ -231,8 +241,9 @@ def train(model, criterion, optimizer, optimizer_st, scheduler,
         if num_gpus > 1:
             loss_dict['postnet_loss'] = reduce_tensor(loss_dict['postnet_loss'].data, num_gpus)
             loss_dict['decoder_loss'] = reduce_tensor(loss_dict['decoder_loss'].data, num_gpus)
-            loss_dict['loss'] = reduce_tensor(loss_dict['loss'] .data, num_gpus)
-            loss_dict['stopnet_loss'] = reduce_tensor(loss_dict['stopnet_loss'].data, num_gpus) if c.stopnet else loss_dict['stopnet_loss']
+            loss_dict['loss'] = reduce_tensor(loss_dict['loss'].data, num_gpus)
+            loss_dict['stopnet_loss'] = reduce_tensor(loss_dict['stopnet_loss'].data, num_gpus) if c.stopnet else \
+                loss_dict['stopnet_loss']
 
         if args.rank == 0:
             # Plot Training Iter Stats
@@ -329,7 +340,8 @@ def evaluate(model, criterion, ap, global_step, epoch):
             start_time = time.time()
 
             # format data
-            text_input, text_lengths, mel_input, mel_lengths, linear_input, stop_targets, speaker_ids, _, _ = format_data(data)
+            text_input, text_lengths, mel_input, mel_lengths, linear_input, stop_targets, speaker_ids, _, _ = format_data(
+                data)
             assert mel_input.shape[1] % model.decoder.r == 0
 
             # forward pass model
@@ -343,9 +355,10 @@ def evaluate(model, criterion, ap, global_step, epoch):
 
             # set the alignment lengths wrt reduction factor for guided attention
             if mel_lengths.max() % model.decoder.r != 0:
-                alignment_lengths = (mel_lengths + (model.decoder.r - (mel_lengths.max() % model.decoder.r))) // model.decoder.r
+                alignment_lengths = (mel_lengths + (
+                        model.decoder.r - (mel_lengths.max() % model.decoder.r))) // model.decoder.r
             else:
-                alignment_lengths = mel_lengths //  model.decoder.r
+                alignment_lengths = mel_lengths // model.decoder.r
 
             # compute loss
             loss_dict = criterion(postnet_output, decoder_output, mel_input,
@@ -375,11 +388,11 @@ def evaluate(model, criterion, ap, global_step, epoch):
 
             keep_avg.update_values({
                 'avg_postnet_loss':
-                float(loss_dict['postnet_loss'].item()),
+                    float(loss_dict['postnet_loss'].item()),
                 'avg_decoder_loss':
-                float(loss_dict['decoder_loss'].item()),
+                    float(loss_dict['decoder_loss'].item()),
                 'avg_stopnet_loss':
-                float(loss_dict['stopnet_loss'].item()),
+                    float(loss_dict['stopnet_loss'].item()),
             })
 
             if c.print_eval:
@@ -454,7 +467,7 @@ def evaluate(model, criterion, ap, global_step, epoch):
                     speaker_id=speaker_id,
                     style_wav=style_wav,
                     truncated=False,
-                    enable_eos_bos_chars=c.enable_eos_bos_chars, #pylint: disable=unused-argument
+                    enable_eos_bos_chars=c.enable_eos_bos_chars,  # pylint: disable=unused-argument
                     use_griffin_lim=True,
                     do_trim_silence=False)
 
@@ -527,6 +540,13 @@ def main(args):  # pylint: disable=redefined-outer-name
     else:
         optimizer_st = None
 
+    if c.apex_amp_level:
+        from apex import amp
+        model.cuda()
+        model, optimizer = amp.initialize(model, optimizer, opt_level=c.apex_amp_level)
+    else:
+        amp = None
+
     # setup criterion
     criterion = TacotronLoss(c, stopnet_pos_weight=10.0, ga_sigma=0.4)
 
@@ -545,6 +565,10 @@ def main(args):  # pylint: disable=redefined-outer-name
             model_dict = set_init_dict(model_dict, checkpoint, c)
             model.load_state_dict(model_dict)
             del model_dict
+
+        if amp and 'amp' in checkpoint:
+            amp.load_state_dict(checkpoint['amp'])
+
         for group in optimizer.param_groups:
             group['lr'] = c.lr
         print(" > Model restored from step %d" % checkpoint['step'],
@@ -588,7 +612,7 @@ def main(args):  # pylint: disable=redefined-outer-name
 
         train_avg_loss_dict, global_step = train(model, criterion, optimizer,
                                                  optimizer_st, scheduler, ap,
-                                                 global_step, epoch)
+                                                 global_step, epoch, amp)
         eval_avg_loss_dict = evaluate(model, criterion, ap, global_step, epoch)
         c_logger.print_epoch_end(epoch, eval_avg_loss_dict)
         target_loss = train_avg_loss_dict['avg_postnet_loss']
@@ -637,7 +661,7 @@ if __name__ == '__main__':
     if args.continue_path != '':
         args.output_path = args.continue_path
         args.config_path = os.path.join(args.continue_path, 'config.json')
-        list_of_files = glob.glob(args.continue_path + "/*.pth.tar") # * means all if need specific format then *.csv
+        list_of_files = glob.glob(args.continue_path + "/*.pth.tar")  # * means all if need specific format then *.csv
         latest_model_file = max(list_of_files, key=os.path.getctime)
         args.restore_path = latest_model_file
         print(f" > Training continues for {args.restore_path}")
@@ -646,6 +670,9 @@ if __name__ == '__main__':
     c = load_config(args.config_path)
     check_config(c)
     _ = os.path.dirname(os.path.realpath(__file__))
+
+    if c.apex_amp_level:
+        print("   >  apex AMP level: ", c.apex_amp_level)
 
     OUT_PATH = args.continue_path
     if args.continue_path == '':

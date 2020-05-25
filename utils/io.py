@@ -36,9 +36,11 @@ def copy_config_file(config_file, out_path, new_fields):
     config_out_file.close()
 
 
-def load_checkpoint(model, checkpoint_path, use_cuda=False):
+def load_checkpoint(model, checkpoint_path, use_cuda=False, amp=None):
     state = torch.load(checkpoint_path, map_location=torch.device('cpu'))
     model.load_state_dict(state['model'])
+    if amp and 'amp' in state:
+        amp.load_state_dict(state['amp'])
     if use_cuda:
         model.cuda()
     # set model stepsize
@@ -47,7 +49,7 @@ def load_checkpoint(model, checkpoint_path, use_cuda=False):
     return model, state
 
 
-def save_model(model, optimizer, current_step, epoch, r, output_path, **kwargs):
+def save_model(model, optimizer, current_step, epoch, r, output_path, amp_state_dict=None, **kwargs):
     new_state_dict = model.state_dict()
     state = {
         'model': new_state_dict,
@@ -57,22 +59,24 @@ def save_model(model, optimizer, current_step, epoch, r, output_path, **kwargs):
         'date': datetime.date.today().strftime("%B %d, %Y"),
         'r': r
     }
+    if amp_state_dict:
+        state['amp'] = amp_state_dict
     state.update(kwargs)
     torch.save(state, output_path)
 
 
-def save_checkpoint(model, optimizer, current_step, epoch, r, output_folder, **kwargs):
+def save_checkpoint(model, optimizer, current_step, epoch, r, output_folder, amp_state_dict=None, **kwargs):
     file_name = 'checkpoint_{}.pth.tar'.format(current_step)
     checkpoint_path = os.path.join(output_folder, file_name)
     print(" > CHECKPOINT : {}".format(checkpoint_path))
-    save_model(model, optimizer, current_step, epoch, r, checkpoint_path, **kwargs)
+    save_model(model, optimizer, current_step, epoch, r, checkpoint_path, amp_state_dict, **kwargs)
 
 
-def save_best_model(target_loss, best_loss, model, optimizer, current_step, epoch, r, output_folder, **kwargs):
+def save_best_model(target_loss, best_loss, model, optimizer, current_step, epoch, r, output_folder, amp_state_dict=None, **kwargs):
     if target_loss < best_loss:
         file_name = 'best_model.pth.tar'
         checkpoint_path = os.path.join(output_folder, file_name)
         print(" > BEST MODEL : {}".format(checkpoint_path))
-        save_model(model, optimizer, current_step, epoch, r, checkpoint_path, model_loss=target_loss, **kwargs)
+        save_model(model, optimizer, current_step, epoch, r, checkpoint_path, amp_state_dict, model_loss=target_loss, **kwargs)
         best_loss = target_loss
     return best_loss
