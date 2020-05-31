@@ -13,12 +13,11 @@ from TTS.speaker_encoder.model import SpeakerEncoder
 from TTS.speaker_encoder.visual import plot_embeddings
 from TTS.speaker_encoder.generic_utils import save_best_model
 from TTS.utils.audio import AudioProcessor
-from TTS.utils.generic_utils import (NoamLR, check_update, copy_config_file,
-                                     count_parameters,
-                                     create_experiment_folder, get_git_branch,
-                                     load_config,
+from TTS.utils.generic_utils import (create_experiment_folder, get_git_branch,
                                      remove_experiment_folder, set_init_dict)
-from TTS.utils.logger import Logger
+from TTS.utils.io import load_config, copy_config_file
+from TTS.utils.training import check_update, NoamLR
+from TTS.utils.tensorboard_logger import TensorboardLogger
 from TTS.utils.radam import RAdam
 
 torch.backends.cudnn.enabled = True
@@ -44,7 +43,7 @@ def setup_loader(ap, is_val=False, verbose=False):
         loader = DataLoader(dataset,
                             batch_size=c.num_speakers_in_batch,
                             shuffle=False,
-                            num_workers=0,
+                            num_workers=c.num_loader_workers,
                             collate_fn=dataset.collate_fn)
     return loader
 
@@ -237,7 +236,7 @@ if __name__ == '__main__':
                      new_fields)
 
     LOG_DIR = OUT_PATH
-    tb_logger = Logger(LOG_DIR)
+    tb_logger = TensorboardLogger(LOG_DIR)
 
     try:
         main(args)
