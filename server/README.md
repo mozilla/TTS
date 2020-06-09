@@ -2,8 +2,8 @@
 
 #### MelGAN model
 
-1. Download the [TTS model](https://www.dropbox.com/sh/z62xzmh6qvmn6r0/AAD2e_aoL6nlwj24gLvsUtj6a?dl=0) and extract the ZIP in `../tts_model/` (relative from the source code root)
-2. Download the [MelGAN model](https://www.dropbox.com/sh/d2fusbums88s7je/AAC3OaAOIVg1LDbp0nzl7iSNa?dl=0) and extract the ZIP in `../melgan_model/` (relative from the source code root)
+1. Download the [TTS model](https://www.dropbox.com/sh/z62xzmh6qvmn6r0/AAD2e_aoL6nlwj24gLvsUtj6a?dl=0) and place the checkpoint and config files in `../tts_model/` (relative from the source code root)
+2. Download the [MelGAN model](https://www.dropbox.com/sh/d2fusbums88s7je/AAC3OaAOIVg1LDbp0nzl7iSNa?dl=0) and place the checkpoint and config files in `../melgan_model/` (relative from the source code root)
 
 Instructions below are based on a Ubuntu 20.04 machine with Python 3.8, but it should be simple to adapt the package names to other distros if needed.
 
