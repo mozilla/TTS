@@ -1,8 +1,11 @@
 ## TTS example web-server
 
-You'll need a model package (Zip file, includes TTS Python wheel, model files, server configuration, and optional nginx/uwsgi configs). Publicly available models are listed [here](https://github.com/mozilla/TTS/wiki/Released-Models#simple-packaging---self-contained-package-that-runs-an-http-api-for-a-pre-trained-tts-model).
+#### MelGAN model
 
-Instructions below are based on a Ubuntu 18.04 machine, but it should be simple to adapt the package names to other distros if needed. Python 3.6 is recommended, as some of the dependencies' versions predate Python 3.7 and will force building from source, which requires extra dependencies and is not guaranteed to work.
+1. Download the [TTS model](https://www.dropbox.com/sh/z62xzmh6qvmn6r0/AAD2e_aoL6nlwj24gLvsUtj6a?dl=0) and extract the ZIP in `../tts_model/` (relative from the source code root)
+2. Download the [MelGAN model](https://www.dropbox.com/sh/d2fusbums88s7je/AAC3OaAOIVg1LDbp0nzl7iSNa?dl=0) and extract the ZIP in `../melgan_model/` (relative from the source code root)
+
+Instructions below are based on a Ubuntu 20.04 machine with Python 3.8, but it should be simple to adapt the package names to other distros if needed.
 
 #### Development server:
 
@@ -10,7 +13,7 @@ Instructions below are based on a Ubuntu 18.04 machine, but it should be simple 
 2. python3 -m venv /tmp/venv
 3. source /tmp/venv/bin/activate
 4. pip install -U pip setuptools wheel
-5. pip install -U https//example.com/url/to/python/package.whl
+5. pip install -r requirements.txt
 6. python -m TTS.server.server
 
 You can now open http://localhost:5002 in a browser
