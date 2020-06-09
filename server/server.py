@@ -27,16 +27,34 @@ def create_argparser():
 config = None
 synthesizer = None
 
-embedded_model_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'model')
-checkpoint_file = os.path.join(embedded_model_folder, 'checkpoint.pth.tar')
-config_file = os.path.join(embedded_model_folder, 'config.json')
+tts_model_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../tts_model')
+tts_checkpoint_file = os.path.join(tts_model_folder, 'checkpoint_670000.pth.tar')
+tts_config_file = os.path.join(tts_model_folder, 'config.json')
 
-if os.path.isfile(checkpoint_file) and os.path.isfile(config_file):
-    # Use default config with embedded model files
-    config = create_argparser().parse_args([])
-    config.tts_checkpoint = checkpoint_file
-    config.tts_config = config_file
-    synthesizer = Synthesizer(config)
+melgan_model_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../melgan_model')
+melgan_checkpoint_file = os.path.join(melgan_model_folder, 'checkpoint-1000000steps.pkl')
+melgan_config_file = os.path.join(melgan_model_folder, 'config.yml')
+
+if not os.path.isfile(tts_checkpoint_file):
+  print("TTS model checkpoint file missing")
+  exit(2)
+if not os.path.isfile(tts_config_file):
+  print("TTS config file missing")
+  exit(2)
+if not os.path.isfile(melgan_checkpoint_file):
+  print("MelGAN model checkpoint file missing")
+  exit(2)
+if not os.path.isfile(melgan_config_file):
+  print("MelGAN config file missing")
+  exit(2)
+
+# Use default config with embedded model files
+config = create_argparser().parse_args([])
+config.tts_checkpoint_file = tts_checkpoint_file
+config.tts_config_file = tts_config_file
+config.melgan_checkpoint_file = melgan_checkpoint_file
+config.melgan_config_file = melgan_config_file
+synthesizer = Synthesizer(config)
 
 
 app = Flask(__name__)

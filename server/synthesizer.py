@@ -1,15 +1,23 @@
 import io
-import os
-
-import numpy as np
-import torch
 import sys
+import os
+import torch
+import numpy as np
+import yaml
+import time
+import librosa
+import librosa.display
 
-from TTS.utils.audio import AudioProcessor
 from TTS.utils.generic_utils import load_config, setup_model
 from TTS.utils.text import phonemes, symbols
+#from TTS.utils.text.symbols import symbols, phonemes
+from TTS.utils.audio import AudioProcessor
+from TTS.utils.synthesis import synthesis, text_to_seqvec, trim_silence
 from TTS.utils.speakers import load_speaker_mapping
-from TTS.utils.synthesis import *
+from TTS.utils.visual import visualize
+
+from parallel_wavegan.models import MelGANGenerator
+from parallel_wavegan.utils.audio import AudioProcessor as AudioProcessorVocoder
 
 import re
 alphabets = r"([A-Za-z])"
@@ -22,79 +30,62 @@ websites = r"[.](com|net|org|io|gov)"
 
 class Synthesizer(object):
     def __init__(self, config):
-        self.wavernn = None
-        self.config = config
-        self.use_cuda = self.config.use_cuda
-        if self.use_cuda:
-            assert torch.cuda.is_available(), "CUDA is not availabe on this machine."
-        self.load_tts(self.config.tts_checkpoint, self.config.tts_config,
-                      self.config.use_cuda)
-        if self.config.wavernn_lib_path:
-            self.load_wavernn(self.config.wavernn_lib_path, self.config.wavernn_path,
-                              self.config.wavernn_file, self.config.wavernn_config,
-                              self.config.use_cuda)
+        # model paths
+        TTS_MODEL = config.tts_checkpoint_file
+        TTS_CONFIG = config.tts_config_file
+        MELGAN_MODEL = config.melgan_checkpoint_file
+        MELGAN_CONFIG = config.melgan_config_file
 
-    def load_tts(self, tts_checkpoint, tts_config, use_cuda):
-        print(" > Loading TTS model ...")
-        print(" | > model config: ", tts_config)
-        print(" | > checkpoint file: ", tts_checkpoint)
-        self.tts_config = load_config(tts_config)
-        self.use_phonemes = self.tts_config.use_phonemes
-        self.ap = AudioProcessor(**self.tts_config.audio)
-        if self.use_phonemes:
-            self.input_size = len(phonemes)
-        else:
-            self.input_size = len(symbols)
-        # load speakers
-        if self.config.tts_speakers is not None:
-            self.tts_speakers = load_speaker_mapping(os.path.join(model_path, self.config.tts_speakers))
-            num_speakers = len(self.tts_speakers)
-        else:
-            num_speakers = 0
-        self.tts_model = setup_model(self.input_size, num_speakers=num_speakers, c=self.tts_config) 
-        # load model state
-        cp = torch.load(tts_checkpoint, map_location=torch.device('cpu'))
+        # load TTS config
+        TTS_CONFIG = load_config(TTS_CONFIG)
+        self.TTS_CONFIG = TTS_CONFIG
+
+        # load PWGAN config
+        with open(MELGAN_CONFIG) as f:
+            MELGAN_CONFIG = yaml.load(f, Loader=yaml.Loader)
+
+        # Set some config fields manually for testing
+        TTS_CONFIG.windowing = False
+        TTS_CONFIG.use_forward_attn = True
+
+        # Set the vocoder
+        self.use_gl = False
+        # NVIDIA GPU
+        self.use_cuda = torch.cuda.is_available()
+
+        # LOAD TTS MODEL
+        # multi speaker
+        self.speaker_id = None
+        speakers = []
+
         # load the model
-        self.tts_model.load_state_dict(cp['model'])
-        if use_cuda:
-            self.tts_model.cuda()
-        self.tts_model.eval()
-        self.tts_model.decoder.max_decoder_steps = 3000
+        num_chars = len(phonemes) if TTS_CONFIG.use_phonemes else len(symbols)
+        self.model = setup_model(num_chars, len(speakers), TTS_CONFIG)
+
+        # load the audio processor
+        self.ap = AudioProcessor(**TTS_CONFIG.audio)
+
+        # load model state
+        cp =  torch.load(TTS_MODEL, map_location=torch.device('cpu'))
+
+        # load the model
+        self.model.load_state_dict(cp['model'])
+        if self.use_cuda:
+            self.model.cuda()
+        self.model.eval()
+
+        # set model stepsize
         if 'r' in cp:
-            self.tts_model.decoder.set_r(cp['r'])
+            self.model.decoder.set_r(cp['r'])
 
-    def load_wavernn(self, lib_path, model_path, model_file, model_config, use_cuda):
-        # TODO: set a function in wavernn code base for model setup and call it here.
-        sys.path.append(lib_path) # set this if TTS is not installed globally
-        from WaveRNN.models.wavernn import Model
-        wavernn_config = os.path.join(model_path, model_config)
-        model_file = os.path.join(model_path, model_file)
-        print(" > Loading WaveRNN model ...")
-        print(" | > model config: ", wavernn_config)
-        print(" | > model file: ", model_file)
-        self.wavernn_config = load_config(wavernn_config)
-        self.wavernn = Model(
-            rnn_dims=512,
-            fc_dims=512,
-            mode=self.wavernn_config.mode,
-            mulaw=self.wavernn_config.mulaw,
-            pad=self.wavernn_config.pad,
-            use_aux_net=self.wavernn_config.use_aux_net,
-            use_upsample_net = self.wavernn_config.use_upsample_net,
-            upsample_factors=self.wavernn_config.upsample_factors,
-            feat_dims=80,
-            compute_dims=128,
-            res_out_dims=128,
-            res_blocks=10,
-            hop_length=self.ap.hop_length,
-            sample_rate=self.ap.sample_rate,
-        ).cuda()
-
-        check = torch.load(model_file)
-        self.wavernn.load_state_dict(check['model'])
-        if use_cuda:
-            self.wavernn.cuda()
-        self.wavernn.eval()
+        # load PWGAN MelGAN
+        self.vocoder_model = MelGANGenerator(**MELGAN_CONFIG["generator_params"])
+        self.vocoder_model.load_state_dict(torch.load(MELGAN_MODEL, map_location="cpu")["model"]["generator"])
+        self.vocoder_model.remove_weight_norm()
+        self.ap_vocoder = AudioProcessorVocoder(**MELGAN_CONFIG['audio'])
+        if self.use_cuda:
+            self.vocoder_model.cuda()
+        self.vocoder_model.eval();
 
     def save_wav(self, wav, path):
         # wav *= 32767 / max(1e-8, np.max(np.abs(wav)))
@@ -106,8 +97,6 @@ class Synthesizer(object):
         text = text.replace("\n", " ")
         text = re.sub(prefixes, "\\1<prd>", text)
         text = re.sub(websites, "<prd>\\1", text)
-        if "Ph.D" in text:
-            text = text.replace("Ph.D.", "Ph<prd>D<prd>")
         text = re.sub(r"\s" + alphabets + "[.] ", " \\1<prd> ", text)
         text = re.sub(acronyms+" "+starters, "\\1<stop> \\2", text)
         text = re.sub(alphabets + "[.]" + alphabets + "[.]" + alphabets + "[.]", "\\1<prd>\\2<prd>\\3<prd>", text)
@@ -133,32 +122,46 @@ class Synthesizer(object):
         return sentences
 
     def tts(self, text):
-        wavs = []
-        sens = self.split_into_sentences(text)
-        print(sens)
-        if not sens:
-            sens = [text+'.']
-        for sen in sens:
-            # preprocess the given text
-            inputs = text_to_seqvec(sen, self.tts_config, self.use_cuda)
-            # synthesize voice
-            decoder_output, postnet_output, alignments, _ = run_model(
-                self.tts_model, inputs, self.tts_config, False, None, None)
-            # convert outputs to numpy
-            postnet_output, decoder_output, _ = parse_outputs(
-                postnet_output, decoder_output, alignments)
+        wav = None
+        if False: # Split sentences
+          wavs = []
+          sens = self.split_into_sentences(text)
+          print(sens)
+          if not sens:
+              sens = [text+'.']
+          for sen in sens:
+              # preprocess the given text
+              inputs = text_to_seqvec(sen, self.TTS_CONFIG, self.use_cuda)
+              # synthesize voice
+              wav_sen = self.tts_melgan(text)
+              # trim silence
+              #wav_sen = trim_silence(wav_sen, self.ap)
 
-            if self.wavernn:
-                postnet_output = postnet_output[0].data.cpu().numpy()
-                wav = self.wavernn.generate(torch.FloatTensor(postnet_output.T).unsqueeze(0).cuda(), batched=self.config.is_wavernn_batched, target=11000, overlap=550)
-            else:
-                wav = inv_spectrogram(postnet_output, self.ap, self.tts_config)
-            # trim silence
-            wav = trim_silence(wav, self.ap)
-
-            wavs += list(wav)
-            wavs += [0] * 10000
+              wavs += list(wav_sen)
+              wavs += [0] * 10000
+          wav = wavs
+        else:
+          wav = self.tts_melgan(text)
 
         out = io.BytesIO()
-        self.save_wav(wavs, out)
+        self.save_wav(wav, out);
         return out
+
+    def tts_melgan(self, text, figures=True):
+        t_1 = time.time()
+        waveform, alignment, mel_spec, mel_postnet_spec, stop_tokens = synthesis(self.model, text, self.TTS_CONFIG, self.use_cuda, self.ap, self.speaker_id, style_wav=None, truncated=False, enable_eos_bos_chars=self.TTS_CONFIG.enable_eos_bos_chars)
+        if self.TTS_CONFIG.model == "Tacotron" and not self.use_gl:
+            mel_postnet_spec = self.ap.out_linear_to_mel(mel_postnet_spec.T).T
+        mel_postnet_spec = self.ap._denormalize(mel_postnet_spec)
+        print(mel_postnet_spec.shape)
+        print("max- ", mel_postnet_spec.max(), " -- min- ", mel_postnet_spec.min())
+        if not self.use_gl:
+            waveform = self.vocoder_model.inference(torch.FloatTensor(self.ap_vocoder._normalize(mel_postnet_spec).T).unsqueeze(0), hop_size=self.ap_vocoder.hop_length)
+        if self.use_cuda:
+            waveform = waveform.cpu()
+        waveform = waveform.numpy()
+        print(waveform.shape)
+        print(" >  Run-time: {}".format(time.time() - t_1))
+        if figures:
+            visualize(alignment, mel_postnet_spec, stop_tokens, text, self.ap.hop_length, self.TTS_CONFIG, self.ap._denormalize(mel_spec))
+        return waveform
