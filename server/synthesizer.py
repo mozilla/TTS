@@ -123,6 +123,8 @@ class Synthesizer(object):
 
     def tts(self, text):
         wav = None
+        if not text.endswith("."):
+          text += "."
         if False: # Split sentences
           wavs = []
           sens = self.split_into_sentences(text)
@@ -135,13 +137,14 @@ class Synthesizer(object):
               # synthesize voice
               wav_sen = self.tts_melgan(text)
               # trim silence
-              #wav_sen = trim_silence(wav_sen, self.ap)
+              wav_sen = trim_silence(wav_sen, self.ap)
 
               wavs += list(wav_sen)
               wavs += [0] * 10000
           wav = wavs
         else:
           wav = self.tts_melgan(text)
+          wav = trim_silence(wav, self.ap)
 
         out = io.BytesIO()
         self.save_wav(wav, out);
