@@ -135,9 +135,10 @@ class Synthesizer(object):
               # preprocess the given text
               inputs = text_to_seqvec(sen, self.TTS_CONFIG, self.use_cuda)
               # synthesize voice
-              wav_sen = self.tts_melgan(text)
+              wav_sen = self.tts_melgan(sen)
               # trim silence
               wav_sen = trim_silence(wav_sen, self.ap)
+              # TODO reformat wav_sen
 
               wavs += list(wav_sen)
               wavs += [0] * 10000
