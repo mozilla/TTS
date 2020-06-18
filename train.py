@@ -264,7 +264,8 @@ def train(model, criterion, optimizer, optimizer_st, scheduler,
                     # save model
                     save_checkpoint(model, optimizer, global_step, epoch, model.decoder.r, OUT_PATH,
                                     optimizer_st=optimizer_st,
-                                    model_loss=loss_dict['postnet_loss'].item())
+                                    model_loss=loss_dict['postnet_loss'].item(),
+                                    amp_state_dict=amp.state_dict() if amp else None)
 
                 # Diagnostic visualizations
                 const_spec = postnet_output[0].data.cpu().numpy()
@@ -620,7 +621,7 @@ def main(args):  # pylint: disable=redefined-outer-name
         if c.run_eval:
             target_loss = eval_avg_loss_dict['avg_postnet_loss']
         best_loss = save_best_model(target_loss, best_loss, model, optimizer, global_step, epoch, c.r,
-                                    OUT_PATH)
+                                    OUT_PATH, amp_state_dict=amp.state_dict() if amp else None)
 
 
 if __name__ == '__main__':

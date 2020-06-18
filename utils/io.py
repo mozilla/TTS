@@ -65,18 +65,18 @@ def save_model(model, optimizer, current_step, epoch, r, output_path, **kwargs):
     torch.save(state, output_path)
 
 
-def save_checkpoint(model, optimizer, current_step, epoch, r, output_folder, amp_state_dict=None, **kwargs):
+def save_checkpoint(model, optimizer, current_step, epoch, r, output_folder, **kwargs):
     file_name = 'checkpoint_{}.pth.tar'.format(current_step)
     checkpoint_path = os.path.join(output_folder, file_name)
     print(" > CHECKPOINT : {}".format(checkpoint_path))
-    save_model(model, optimizer, current_step, epoch, r, checkpoint_path, amp_state_dict, **kwargs)
+    save_model(model, optimizer, current_step, epoch, r, checkpoint_path, **kwargs)
 
 
-def save_best_model(target_loss, best_loss, model, optimizer, current_step, epoch, r, output_folder, amp_state_dict=None, **kwargs):
+def save_best_model(target_loss, best_loss, model, optimizer, current_step, epoch, r, output_folder, **kwargs):
     if target_loss < best_loss:
         file_name = 'best_model.pth.tar'
         checkpoint_path = os.path.join(output_folder, file_name)
         print(" > BEST MODEL : {}".format(checkpoint_path))
-        save_model(model, optimizer, current_step, epoch, r, checkpoint_path, amp_state_dict, model_loss=target_loss, **kwargs)
+        save_model(model, optimizer, current_step, epoch, r, checkpoint_path, model_loss=target_loss, **kwargs)
         best_loss = target_loss
     return best_loss
