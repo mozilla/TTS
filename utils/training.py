@@ -2,18 +2,7 @@ import torch
 import numpy as np
 
 
-def setup_torch_training_env(cudnn_enable, cudnn_benchmark):
-    torch.backends.cudnn.enabled = cudnn_enable
-    torch.backends.cudnn.benchmark = cudnn_benchmark
-    torch.manual_seed(54321)
-    use_cuda = torch.cuda.is_available()
-    num_gpus = torch.cuda.device_count()
-    print(" > Using CUDA: ", use_cuda)
-    print(" > Number of GPUs: ", num_gpus)
-    return use_cuda, num_gpus
-
-
-def check_update(model, grad_clip, ignore_stopnet=False):
+def check_update(model, grad_clip, ignore_stopnet=False, amp_opt_params=None):
     r'''Check model gradient against unexpected jumps and failures'''
     skip_flag = False
     if ignore_stopnet:
@@ -44,8 +33,8 @@ def lr_decay(init_lr, global_step, warmup_steps):
     r'''from https://github.com/r9y9/tacotron_pytorch/blob/master/train.py'''
     warmup_steps = float(warmup_steps)
     step = global_step + 1.
-    lr = init_lr * warmup_steps**0.5 * np.minimum(step * warmup_steps**-1.5,
-                                                  step**-0.5)
+    lr = init_lr * warmup_steps ** 0.5 * np.minimum(step * warmup_steps ** -1.5,
+                                                    step ** -0.5)
     return lr
 
 
@@ -97,8 +86,8 @@ class NoamLR(torch.optim.lr_scheduler._LRScheduler):
     def get_lr(self):
         step = max(self.last_epoch, 1)
         return [
-            base_lr * self.warmup_steps**0.5 *
-            min(step * self.warmup_steps**-1.5, step**-0.5)
+            base_lr * self.warmup_steps ** 0.5 *
+            min(step * self.warmup_steps ** -1.5, step ** -0.5)
             for base_lr in self.base_lrs
         ]
 

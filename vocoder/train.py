@@ -17,9 +17,9 @@ from TTS.utils.generic_utils import (KeepAverage, count_parameters,
 from TTS.utils.io import copy_config_file, load_config
 from TTS.utils.radam import RAdam
 from TTS.utils.tensorboard_logger import TensorboardLogger
-from TTS.utils.training import setup_torch_training_env, NoamLR
+from TTS.utils.training import setup_torch_training_env
 from TTS.vocoder.datasets.gan_dataset import GANDataset
-from TTS.vocoder.datasets.preprocess import load_wav_data
+from TTS.vocoder.datasets.preprocess import load_wav_data, load_wav_feat_data
 # from distribute import (DistributedSampler, apply_gradient_allreduce,
 #                         init_distributed, reduce_tensor)
 from TTS.vocoder.layers.losses import DiscriminatorLoss, GeneratorLoss
@@ -52,7 +52,7 @@ def setup_loader(ap, is_val=False, verbose=False):
         # sampler = DistributedSampler(dataset) if num_gpus > 1 else None
         loader = DataLoader(dataset,
                             batch_size=1 if is_val else c.batch_size,
-                            shuffle=False,
+                            shuffle=True,
                             drop_last=False,
                             sampler=None,
                             num_workers=c.num_val_loader_workers
@@ -107,24 +107,21 @@ def train(model_G, criterion_G, optimizer_G, model_D, criterion_D, optimizer_D,
 
         global_step += 1
 
-        # get current learning rates
-        current_lr_G = list(optimizer_G.param_groups)[0]['lr']
-        current_lr_D = list(optimizer_D.param_groups)[0]['lr']
-
         ##############################
         # GENERATOR
         ##############################
 
         # generator pass
-        optimizer_G.zero_grad()
         y_hat = model_G(c_G)
         y_hat_sub = None
         y_G_sub = None
+        y_hat_vis = y_hat  # for visualization
 
         # PQMF formatting
         if y_hat.shape[1] > 1:
             y_hat_sub = y_hat
             y_hat = model_G.pqmf_synthesis(y_hat)
+            y_hat_vis = y_hat
             y_G_sub = model_G.pqmf_analysis(y_G)
 
         if global_step > c.steps_to_start_discriminator:
@@ -144,12 +141,11 @@ def train(model_G, criterion_G, optimizer_G, model_D, criterion_D, optimizer_D,
             if isinstance(D_out_fake, tuple):
                 scores_fake, feats_fake = D_out_fake
                 if D_out_real is None:
-                    scores_real, feats_real = None, None
+                    feats_real = None
                 else:
-                    scores_real, feats_real = D_out_real
+                    _, feats_real = D_out_real
             else:
                 scores_fake = D_out_fake
-                scores_real = D_out_real
         else:
             scores_fake, feats_fake, feats_real = None, None, None
 
@@ -159,24 +155,26 @@ def train(model_G, criterion_G, optimizer_G, model_D, criterion_D, optimizer_D,
         loss_G = loss_G_dict['G_loss']
 
         # optimizer generator
+        optimizer_G.zero_grad()
         loss_G.backward()
         if c.gen_clip_grad > 0:
             torch.nn.utils.clip_grad_norm_(model_G.parameters(),
                                            c.gen_clip_grad)
         optimizer_G.step()
-
-        # setup lr
-        if c.noam_schedule:
+        if scheduler_G is not None:
             scheduler_G.step()
 
         loss_dict = dict()
         for key, value in loss_G_dict.items():
-            loss_dict[key] = value.item()
+            if isinstance(value, int):
+                loss_dict[key] = value
+            else:
+                loss_dict[key] = value.item()
 
         ##############################
         # DISCRIMINATOR
         ##############################
-        if global_step > c.steps_to_start_discriminator:
+        if global_step >= c.steps_to_start_discriminator:
             # discriminator pass
             with torch.no_grad():
                 y_hat = model_G(c_D)
@@ -184,8 +182,6 @@ def train(model_G, criterion_G, optimizer_G, model_D, criterion_D, optimizer_D,
             # PQMF formatting
             if y_hat.shape[1] > 1:
                 y_hat = model_G.pqmf_synthesis(y_hat)
-
-            optimizer_D.zero_grad()
 
             # run D with or without cond. features
             if len(signature(model_D.forward).parameters) == 2:
@@ -211,21 +207,27 @@ def train(model_G, criterion_G, optimizer_G, model_D, criterion_D, optimizer_D,
             loss_D = loss_D_dict['D_loss']
 
             # optimizer discriminator
+            optimizer_D.zero_grad()
             loss_D.backward()
             if c.disc_clip_grad > 0:
                 torch.nn.utils.clip_grad_norm_(model_D.parameters(),
                                                c.disc_clip_grad)
             optimizer_D.step()
-
-            # setup lr
-            if c.noam_schedule:
+            if scheduler_D is not None:
                 scheduler_D.step()
 
             for key, value in loss_D_dict.items():
-                loss_dict[key] = value.item()
+                if isinstance(value, (int, float)):
+                    loss_dict[key] = value
+                else:
+                    loss_dict[key] = value.item()
 
         step_time = time.time() - start_time
         epoch_time += step_time
+
+        # get current learning rates
+        current_lr_G = list(optimizer_G.param_groups)[0]['lr']
+        current_lr_D = list(optimizer_D.param_groups)[0]['lr']
 
         # update avg stats
         update_train_values = dict()
@@ -239,7 +241,8 @@ def train(model_G, criterion_G, optimizer_G, model_D, criterion_D, optimizer_D,
         if global_step % c.print_step == 0:
             c_logger.print_train_step(batch_n_iter, num_iter, global_step,
                                       step_time, loader_time, current_lr_G,
-                                      loss_dict, keep_avg.avg_values)
+                                      current_lr_D, loss_dict,
+                                      keep_avg.avg_values)
 
         # plot step stats
         if global_step % 10 == 0:
@@ -257,20 +260,22 @@ def train(model_G, criterion_G, optimizer_G, model_D, criterion_D, optimizer_D,
                 # save model
                 save_checkpoint(model_G,
                                 optimizer_G,
+                                scheduler_G,
                                 model_D,
                                 optimizer_D,
+                                scheduler_D,
                                 global_step,
                                 epoch,
                                 OUT_PATH,
                                 model_losses=loss_dict)
 
             # compute spectrograms
-            figures = plot_results(y_hat, y_G, ap, global_step,
+            figures = plot_results(y_hat_vis, y_G, ap, global_step,
                                    'train')
             tb_logger.tb_train_figures(global_step, figures)
 
             # Sample audio
-            sample_voice = y_hat[0].squeeze(0).detach().cpu().numpy()
+            sample_voice = y_hat_vis[0].squeeze(0).detach().cpu().numpy()
             tb_logger.tb_train_audios(global_step,
                                       {'train/audio': sample_voice},
                                       c.audio["sample_rate"])
@@ -290,7 +295,7 @@ def train(model_G, criterion_G, optimizer_G, model_D, criterion_D, optimizer_D,
 
 
 @torch.no_grad()
-def evaluate(model_G, criterion_G, model_D, ap, global_step, epoch):
+def evaluate(model_G, criterion_G, model_D, criterion_D, ap, global_step, epoch):
     data_loader = setup_loader(ap, is_val=True, verbose=(epoch == 0))
     model_G.eval()
     model_D.eval()
@@ -322,21 +327,30 @@ def evaluate(model_G, criterion_G, model_D, ap, global_step, epoch):
             y_hat = model_G.pqmf_synthesis(y_hat)
             y_G_sub = model_G.pqmf_analysis(y_G)
 
-        D_out_fake = model_D(y_hat)
-        D_out_real = None
-        if c.use_feat_match_loss:
-            with torch.no_grad():
-                D_out_real = model_D(y_G)
 
-        # format D outputs
-        if isinstance(D_out_fake, tuple):
-            scores_fake, feats_fake = D_out_fake
-            if D_out_real is None:
-                feats_real = None
+        if global_step > c.steps_to_start_discriminator:
+
+            if len(signature(model_D.forward).parameters) == 2:
+                D_out_fake = model_D(y_hat, c_G)
             else:
-                _, feats_real = D_out_real
+                D_out_fake = model_D(y_hat)
+            D_out_real = None
+
+            if c.use_feat_match_loss:
+                with torch.no_grad():
+                    D_out_real = model_D(y_G)
+
+            # format D outputs
+            if isinstance(D_out_fake, tuple):
+                scores_fake, feats_fake = D_out_fake
+                if D_out_real is None:
+                    feats_real = None
+                else:
+                    _, feats_real = D_out_real
+            else:
+                scores_fake = D_out_fake
         else:
-            scores_fake = D_out_fake
+            scores_fake, feats_fake, feats_real = None, None, None
 
         # compute losses
         loss_G_dict = criterion_G(y_hat, y_G, scores_fake, feats_fake,
@@ -344,17 +358,62 @@ def evaluate(model_G, criterion_G, model_D, ap, global_step, epoch):
 
         loss_dict = dict()
         for key, value in loss_G_dict.items():
-            loss_dict[key] = value.item()
+            if isinstance(value, (int, float)):
+                loss_dict[key] = value
+            else:
+                loss_dict[key] = value.item()
+
+        ##############################
+        # DISCRIMINATOR
+        ##############################
+
+        if global_step >= c.steps_to_start_discriminator:
+            # discriminator pass
+            with torch.no_grad():
+                y_hat = model_G(c_G)
+
+            # PQMF formatting
+            if y_hat.shape[1] > 1:
+                y_hat = model_G.pqmf_synthesis(y_hat)
+
+            # run D with or without cond. features
+            if len(signature(model_D.forward).parameters) == 2:
+                D_out_fake = model_D(y_hat.detach(), c_G)
+                D_out_real = model_D(y_G, c_G)
+            else:
+                D_out_fake = model_D(y_hat.detach())
+                D_out_real = model_D(y_G)
+
+            # format D outputs
+            if isinstance(D_out_fake, tuple):
+                scores_fake, feats_fake = D_out_fake
+                if D_out_real is None:
+                    scores_real, feats_real = None, None
+                else:
+                    scores_real, feats_real = D_out_real
+            else:
+                scores_fake = D_out_fake
+                scores_real = D_out_real
+
+            # compute losses
+            loss_D_dict = criterion_D(scores_fake, scores_real)
+
+            for key, value in loss_D_dict.items():
+                if isinstance(value, (int, float)):
+                    loss_dict[key] = value
+                else:
+                    loss_dict[key] = value.item()
+
 
         step_time = time.time() - start_time
         epoch_time += step_time
 
         # update avg stats
         update_eval_values = dict()
-        for key, value in loss_G_dict.items():
-            update_eval_values['avg_' + key] = value.item()
+        for key, value in loss_dict.items():
+            update_eval_values['avg_' + key] = value
         update_eval_values['avg_loader_time'] = loader_time
-        update_eval_values['avgP_step_time'] = step_time
+        update_eval_values['avg_step_time'] = step_time
         keep_avg.update_values(update_eval_values)
 
         # print eval stats
@@ -382,10 +441,16 @@ def evaluate(model_G, criterion_G, model_D, ap, global_step, epoch):
 def main(args):  # pylint: disable=redefined-outer-name
     # pylint: disable=global-variable-undefined
     global train_data, eval_data
-    eval_data, train_data = load_wav_data(c.data_path, c.eval_split_size)
+    print(f" > Loading wavs from: {c.data_path}")
+    if c.feature_path is not None:
+        print(f" > Loading features from: {c.feature_path}")
+        eval_data, train_data = load_wav_feat_data(c.data_path, c.feature_path, c.eval_split_size)
+    else:
+        eval_data, train_data = load_wav_data(c.data_path, c.eval_split_size)
 
     # setup audio processor
     ap = AudioProcessor(**c.audio)
+
     # DISTRUBUTED
     # if num_gpus > 1:
     # init_distributed(args.rank, num_gpus, args.group_id,
@@ -401,6 +466,16 @@ def main(args):  # pylint: disable=redefined-outer-name
                            lr=c.lr_disc,
                            weight_decay=0)
 
+    # schedulers
+    scheduler_gen = None
+    scheduler_disc = None
+    if 'lr_scheduler_gen' in c:
+        scheduler_gen = getattr(torch.optim.lr_scheduler, c.lr_scheduler_gen)
+        scheduler_gen = scheduler_gen(optimizer_gen, **c.lr_scheduler_gen_params)
+    if 'lr_scheduler_disc' in c:
+        scheduler_disc = getattr(torch.optim.lr_scheduler, c.lr_scheduler_disc)
+        scheduler_disc = scheduler_disc(optimizer_disc, **c.lr_scheduler_disc_params)
+
     # setup criterion
     criterion_gen = GeneratorLoss(c)
     criterion_disc = DiscriminatorLoss(c)
@@ -408,12 +483,26 @@ def main(args):  # pylint: disable=redefined-outer-name
     if args.restore_path:
         checkpoint = torch.load(args.restore_path, map_location='cpu')
         try:
+            print(" > Restoring Generator Model...")
             model_gen.load_state_dict(checkpoint['model'])
+            print(" > Restoring Generator Optimizer...")
             optimizer_gen.load_state_dict(checkpoint['optimizer'])
+            print(" > Restoring Discriminator Model...")
             model_disc.load_state_dict(checkpoint['model_disc'])
+            print(" > Restoring Discriminator Optimizer...")
             optimizer_disc.load_state_dict(checkpoint['optimizer_disc'])
-        except KeyError:
-            print(" > Partial model initialization.")
+            if 'scheduler' in checkpoint:
+                print(" > Restoring Generator LR Scheduler...")
+                scheduler_gen.load_state_dict(checkpoint['scheduler'])
+                # NOTE: Not sure if necessary
+                scheduler_gen.optimizer = optimizer_gen
+            if 'scheduler_disc' in checkpoint:
+                print(" > Restoring Discriminator LR Scheduler...")
+                scheduler_disc.load_state_dict(checkpoint['scheduler_disc'])
+                scheduler_disc.optimizer = optimizer_disc
+        except RuntimeError:
+            # retore only matching layers.
+            print(" > Partial model initialization...")
             model_dict = model_gen.state_dict()
             model_dict = set_init_dict(model_dict, checkpoint['model'], c)
             model_gen.load_state_dict(model_dict)
@@ -446,16 +535,6 @@ def main(args):  # pylint: disable=redefined-outer-name
     # if num_gpus > 1:
     #     model = apply_gradient_allreduce(model)
 
-    if c.noam_schedule:
-        scheduler_gen = NoamLR(optimizer_gen,
-                               warmup_steps=c.warmup_steps_gen,
-                               last_epoch=args.restore_step - 1)
-        scheduler_disc = NoamLR(optimizer_disc,
-                                warmup_steps=c.warmup_steps_gen,
-                                last_epoch=args.restore_step - 1)
-    else:
-        scheduler_gen, scheduler_disc = None, None
-
     num_params = count_parameters(model_gen)
     print(" > Generator has {} parameters".format(num_params), flush=True)
     num_params = count_parameters(model_disc)
@@ -471,7 +550,7 @@ def main(args):  # pylint: disable=redefined-outer-name
                                model_disc, criterion_disc, optimizer_disc,
                                scheduler_gen, scheduler_disc, ap, global_step,
                                epoch)
-        eval_avg_loss_dict = evaluate(model_gen, criterion_gen, model_disc, ap,
+        eval_avg_loss_dict = evaluate(model_gen, criterion_gen, model_disc, criterion_disc, ap,
                                       global_step, epoch)
         c_logger.print_epoch_end(epoch, eval_avg_loss_dict)
         target_loss = eval_avg_loss_dict[c.target_loss]
@@ -479,8 +558,10 @@ def main(args):  # pylint: disable=redefined-outer-name
                                     best_loss,
                                     model_gen,
                                     optimizer_gen,
+                                    scheduler_gen,
                                     model_disc,
                                     optimizer_disc,
+                                    scheduler_disc,
                                     global_step,
                                     epoch,
                                     OUT_PATH,

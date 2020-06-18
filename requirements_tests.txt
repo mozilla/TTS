@@ -13,4 +13,3 @@ tqdm
 soundfile
 phonemizer
 bokeh==1.4.0
-nose

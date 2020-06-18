@@ -106,15 +106,15 @@ def sequence_mask(sequence_length, max_len=None):
     return seq_range_expand < seq_length_expand
 
 
-def set_init_dict(model_dict, checkpoint_state, c):
+def set_init_dict(model_dict, checkpoint, c):
     # Partial initialization: if there is a mismatch with new and old layer, it is skipped.
-    for k, v in checkpoint_state.items():
+    for k, v in checkpoint['model'].items():
         if k not in model_dict:
             print(" | > Layer missing in the model definition: {}".format(k))
     # 1. filter out unnecessary keys
     pretrained_dict = {
         k: v
-        for k, v in checkpoint_state.items() if k in model_dict
+        for k, v in checkpoint['model'].items() if k in model_dict
     }
     # 2. filter out different size layers
     pretrained_dict = {
@@ -197,19 +197,14 @@ class KeepAverage():
         self.iters[name] = init_iter
 
     def update_value(self, name, value, weighted_avg=False):
-        if name not in self.avg_values:
-            # add value if not exist before
-            self.add_value(name, init_val=value)
+        if weighted_avg:
+            self.avg_values[name] = 0.99 * self.avg_values[name] + 0.01 * value
+            self.iters[name] += 1
         else:
-            # else update existing value
-            if weighted_avg:
-                self.avg_values[name] = 0.99 * self.avg_values[name] + 0.01 * value
-                self.iters[name] += 1
-            else:
-                self.avg_values[name] = self.avg_values[name] * \
-                    self.iters[name] + value
-                self.iters[name] += 1
-                self.avg_values[name] /= self.iters[name]
+            self.avg_values[name] = self.avg_values[name] * \
+                self.iters[name] + value
+            self.iters[name] += 1
+            self.avg_values[name] /= self.iters[name]
 
     def add_values(self, name_dict):
         for key, value in name_dict.items():
