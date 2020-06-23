@@ -3,9 +3,7 @@
 
 <img src="https://travis-ci.org/mozilla/TTS.svg?branch=dev"/>
 
-This project is a part of [Mozilla Common Voice](https://voice.mozilla.org/en). TTS aims a deep learning based Text2Speech engine, low in cost and high in quality. To begin with, you can hear a sample generated voice from [here](https://soundcloud.com/user-565970875/commonvoice-loc-sens-attn).
-
-TTS includes two different model implementations which are based on [Tacotron](https://arxiv.org/abs/1703.10135) and [Tacotron2](https://arxiv.org/abs/1712.05884). Tacotron is smaller, efficient and easier to train but Tacotron2 provides better results, especially when it is combined with a Neural vocoder. Therefore, choose depending on your project requirements.
+This project is a part of [Mozilla Common Voice](https://voice.mozilla.org/en). TTS aims a deep learning based Text2Speech engine, low in cost and high in quality. To begin with, you can hear a sample synthesized voice from [here](https://soundcloud.com/user-565970875/commonvoice-loc-sens-attn).
 
 If you are new, you can also find [here](http://www.erogol.com/text-speech-deep-learning-architectures/) a brief post about TTS architectures and their comparisons.
 
@@ -16,14 +14,38 @@ If you are new, you can also find [here](http://www.erogol.com/text-speech-deep-
 
 [Details...](https://github.com/mozilla/TTS/wiki/Mean-Opinion-Score-Results)
 
+## Provided Models and Methods
+Text-to-Spectrogram:
+- Tacotron: [paper](https://arxiv.org/abs/1703.10135)
+- Tacotron2: [paper](https://arxiv.org/abs/1712.05884)
+
+Attention Methods:
+- Guided Attention: [paper](https://arxiv.org/abs/1710.08969)
+- Forward Backward Decoding: [paper](https://arxiv.org/abs/1907.09006)
+- Graves Attention: [paper](https://arxiv.org/abs/1907.09006)
+- Double Decoder Consistency: [blog](https://erogol.com/solving-attention-problems-of-tts-models-with-double-decoder-consistency/)
+
+Speaker Encoder:
+- GE2E: [paper](https://arxiv.org/abs/1710.10467)
+
+Vocoders:
+- MelGAN: [paper](https://arxiv.org/abs/1710.10467)
+- MultiBandMelGAN: [paper](https://arxiv.org/abs/2005.05106)
+- GAN-TTS discriminators: [paper](https://arxiv.org/abs/1909.11646)
+
+You can also help us implement more models. Some TTS related work can be found [here](https://github.com/erogol/TTS-papers).
+
 ## Features
-- High performance Text2Speech models on Torch and Tensorflow 2.0.
-- High performance Speaker Encoder to compute speaker embeddings efficiently. 
-- Integration with various Neural Vocoders (PWGAN, MelGAN, WaveRNN)
-- Released trained models.
-- Efficient training codes for PyTorch. (soon for Tensorflow 2.0)
-- Codes to convert Torch models to Tensorflow 2.0.
-- Detailed training anlaysis on console and Tensorboard.
+- High performance Deep Learning models for Text2Speech related tasks.
+    - Text2Speech models (Tacotron, Tacotron2).
+    - Speaker Encoder to compute speaker embeddings efficiently.
+    - Vocoder models (MelGAN, Multiband-MelGAN, GAN-TTS)
+- Support for multi-speaker TTS training.
+- Support for Multi-GPUs training.
+- Ability to convert Torch models to Tensorflow 2.0 for inference.
+- Released pre-trained models.
+- Fast and efficient model training.
+- Detailed training logs on console and Tensorboard.
 - Tools to curate Text2Speech datasets under```dataset_analysis```.
 - Demo server for model testing.
 - Notebooks for extensive model benchmarking.
@@ -46,6 +68,22 @@ Install TTS using ```setup.py```. It will install all of the requirements automa
 Or you can use ```requirements.txt``` to install the requirements only.
 
 ```pip install -r requirements.txt```
+
+### Directory Structure
+```
+|- TTS/
+|   |- train.py         (train your TTS model.)
+|   |- distribute.py    (train your TTS model using Multiple GPUs)
+|   |- config.json      (TTS model configuration file)
+|   |- tf/              (Tensorflow 2 utilities and model implementations)
+|   |- layers/          (model layer definitions)
+|   |- models/          (model definitions)
+|   |- notebooks/       (Jupyter Notebooks for model evaluation and parameter selection)
+|   |- data_analysis/   (TTS Dataset analysis tools and notebooks.)
+|   |- utils/           (TTS utilities -io, visualization, data processing etc.-)
+|   |- speaker_encoder/ (Speaker Encoder implementation with the same folder structure.)
+|   |- vocoder/         (Vocoder implementations with the same folder structure.)
+```
 
 ### Docker
 A barebone `Dockerfile` exists at the root of the project, which should let you quickly setup the environment. By default, it will start the server and let you query it. Make sure to use `nvidia-docker` to use your GPUs. Make sure you follow the instructions in the [`server README`](server/README.md) before you build your image so that the server can find the model within the image.
