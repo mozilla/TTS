@@ -4,7 +4,7 @@ import os
 
 from flask import Flask, request, render_template, send_file
 from TTS.server.synthesizer import Synthesizer
-
+from TTS.utils.io import load_config
 
 def create_argparser():
     def convert_boolean(x):
@@ -21,9 +21,12 @@ def create_argparser():
     parser.add_argument('--pwgan_lib_path', type=str, default=None, help='path to ParallelWaveGAN project folder to be imported. If this is not passed, model uses Griffin-Lim for synthesis.')
     parser.add_argument('--pwgan_file', type=str, default=None, help='path to ParallelWaveGAN checkpoint file.')
     parser.add_argument('--pwgan_config', type=str, default=None, help='path to ParallelWaveGAN config file.')
+    parser.add_argument('--pwgan_type', type=str, default=None, help='pwgan type: "pw" or "mel".')
     parser.add_argument('--port', type=int, default=5002, help='port to listen on.')
     parser.add_argument('--use_cuda', type=convert_boolean, default=False, help='true to use CUDA.')
     parser.add_argument('--debug', type=convert_boolean, default=False, help='true to enable Flask debug mode.')
+    parser.add_argument('--config_file', type=str, default=None, help='path to server config file')
+
     return parser
 
 
@@ -44,6 +47,9 @@ pwgan_checkpoint_file = os.path.join(embedded_pwgan_folder, 'checkpoint.pkl')
 pwgan_config_file = os.path.join(embedded_pwgan_folder, 'config.yml')
 
 args = create_argparser().parse_args()
+
+if args.config_file is not None and os.path.isfile(args.config_file):
+    args = load_config(args.config_file)   
 
 # If these were not specified in the CLI args, use default values with embedded model files
 if not args.tts_checkpoint and os.path.isfile(tts_checkpoint_file):

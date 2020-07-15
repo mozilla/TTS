@@ -39,7 +39,7 @@ class Synthesizer(object):
                               self.config.wavernn_config, self.config.use_cuda)
         if self.config.pwgan_file:
             self.load_pwgan(self.config.pwgan_lib_path, self.config.pwgan_file,
-                            self.config.pwgan_config, self.config.use_cuda)
+                            self.config.pwgan_config, self.config.pwgan_type, self.config.use_cuda)
 
     def load_tts(self, tts_checkpoint, tts_config, use_cuda):
         # pylint: disable=global-statement
@@ -112,21 +112,30 @@ class Synthesizer(object):
             self.wavernn.cuda()
         self.wavernn.eval()
 
-    def load_pwgan(self, lib_path, model_file, model_config, use_cuda):
+    def load_pwgan(self, lib_path, model_file, model_config, model_type, use_cuda):
         if lib_path:
             # set this if ParallelWaveGAN is not installed globally
             sys.path.append(lib_path)
         try:
             #pylint: disable=import-outside-toplevel
-            from parallel_wavegan.models import ParallelWaveGANGenerator
+            from parallel_wavegan.models import MelGANGenerator, ParallelWaveGANGenerator
         except ImportError as e:
             raise RuntimeError(f"cannot import parallel-wavegan, either install it or set its directory using the --pwgan_lib_path command line argument: {e}")
-        print(" > Loading PWGAN model ...")
+
+        if not model_type:
+            raise RuntimeError("missing pwgan_type, please set it in config-file or by using the --pwgan_type command line argument")
+        print(" > Loading {}GAN model ...".format(model_type.lower()))
         print(" | > model config: ", model_config)
         print(" | > model file: ", model_file)
         with open(model_config) as f:
             self.pwgan_config = yaml.load(f, Loader=yaml.Loader)
-        self.pwgan = ParallelWaveGANGenerator(**self.pwgan_config["generator_params"])
+
+        if model_type.lower() == "pw":
+            self.pwgan = ParallelWaveGANGenerator(**self.pwgan_config["generator_params"])
+        elif model_type.lower() == "mel":
+            self.pwgan = MelGANGenerator(**self.pwgan_config["generator_params"])
+        else:
+            raise RuntimeError("unknown pwgan_type: '{}' - allowed options are 'pw' or 'mel'".format(model_type))
         self.pwgan.load_state_dict(torch.load(model_file, map_location="cpu")["model"]["generator"])
         self.pwgan.remove_weight_norm()
         if use_cuda:
@@ -179,23 +188,33 @@ class Synthesizer(object):
             speaker_id = speaker_id.cuda()
 
         for sen in sens:
+            print("preprocess:", sen)
             # preprocess the given text
             inputs = text_to_seqvec(sen, self.tts_config)
             inputs = numpy_to_torch(inputs, torch.long, cuda=self.use_cuda)
             inputs = inputs.unsqueeze(0)
+            print("synthesize voice")
             # synthesize voice
             decoder_output, postnet_output, alignments, stop_tokens = run_model_torch(
                 self.tts_model, inputs, self.tts_config, False, speaker_id, None)
             # convert outputs to numpy
+            print("convert outputs to numpy")
             postnet_output, decoder_output, _, _ = parse_outputs_torch(
                 postnet_output, decoder_output, alignments, stop_tokens)
 
             if self.pwgan:
+                print("pwgan")
                 vocoder_input = torch.FloatTensor(postnet_output.T).unsqueeze(0)
                 if self.use_cuda:
                     vocoder_input.cuda()
-                wav = self.pwgan.inference(vocoder_input, hop_size=self.ap.hop_length)
+                print("inference")
+                if self.config.pwgan_type.lower() == "pw":
+                    wav = self.pwgan.inference(vocoder_input, hop_size=self.ap.hop_length)
+                else:
+                    w = self.pwgan.inference(vocoder_input)
+                    wav = np.squeeze(w.numpy())
             elif self.wavernn:
+                print("wavernn")
                 vocoder_input = None
                 if self.tts_config.model == "Tacotron":
                     vocoder_input = torch.FloatTensor(self.ap.out_linear_to_mel(linear_spec=postnet_output.T).T).T.unsqueeze(0)
@@ -204,9 +223,14 @@ class Synthesizer(object):
 
                 if self.use_cuda:
                     vocoder_input.cuda()
+                print("inference")
                 wav = self.wavernn.generate(vocoder_input, batched=self.config.is_wavernn_batched, target=11000, overlap=550)
             else:
+                print("grifflim inference")
                 wav = inv_spectrogram(postnet_output, self.ap, self.tts_config)
+
+            #print("wav", type(wav), wav.shape)
+            #print(wav)
             # trim silence
             wav = trim_silence(wav, self.ap)
 
