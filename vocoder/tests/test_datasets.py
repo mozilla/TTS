@@ -4,8 +4,8 @@ from torch.utils.data import DataLoader
 
 from TTS.vocoder.datasets.gan_dataset import GANDataset
 from TTS.vocoder.datasets.preprocess import load_wav_data
-from TTS.utils.audio import AudioProcessor
-from TTS.utils.io import load_config
+from TTS.tts.utils.audio import AudioProcessor
+from TTS.tts.utils.io import load_config
 
 
 file_path = os.path.dirname(os.path.realpath(__file__))

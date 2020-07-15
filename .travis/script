@@ -14,7 +14,7 @@ if [[ "$TEST_SUITE" == "unittest" ]]; then
   pushd tts_namespace
   nosetests TTS.speaker_encoder.tests --nocapture
   nosetests TTS.vocoder.tests --nocapture
-  nosetests TTS.tests --nocapture
+  nosetests TTS.tts.tests --nocapture
   nosetests TTS.tf.tests --nocapture
   popd
   # Test server package

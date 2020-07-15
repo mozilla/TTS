@@ -6,7 +6,7 @@ This is used to appease the distribute/setuptools gods. When the project was
 initially set up, the repository folder itself was considered a namespace, and
 development was done with `sys.path` hacks. This means if you tried to install
 TTS, `setup.py` would see the packages `models`, `utils`, `layers`... instead of
- `TTS.models`, `TTS.utils`...
+ `TTS.tts.models`, `TTS.tts.utils`...
 
 Installing TTS would then pollute the package namespace with generic names like
 those above. In order to make things installable in both install and development
@@ -18,7 +18,7 @@ installation, which can only handle the simplest of `package_dir` redirects.
 Our solution is to use a symlink in order to add the extra `TTS` namespace. In
 `setup.py`, we only look for packages inside `tts_namespace` (this folder),
 which contains a symlink called TTS pointing to the repository root. The final
-result is that `setuptools.find_packages` will find `TTS.models`, `TTS.utils`...
+result is that `setuptools.find_packages` will find `TTS.tts.models`, `TTS.tts.utils`...
 
 With this hack, `pip install -e` will then add a symlink to the `tts_namespace`
 in your `site-packages` folder, which works properly. It's important not to add

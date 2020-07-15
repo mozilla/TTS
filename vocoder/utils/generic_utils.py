@@ -3,7 +3,7 @@ import importlib
 import numpy as np
 from matplotlib import pyplot as plt
 
-from TTS.utils.visual import plot_spectrogram
+from TTS.tts.utils.visual import plot_spectrogram
 
 
 def plot_results(y_hat, y, ap, global_step, name_prefix):

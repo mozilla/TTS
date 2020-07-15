@@ -3,9 +3,9 @@ import torch
 
 from TTS.vocoder.layers.losses import TorchSTFT, STFTLoss, MultiScaleSTFTLoss
 
-from TTS.tests import get_tests_path, get_tests_input_path, get_tests_output_path
-from TTS.utils.audio import AudioProcessor
-from TTS.utils.io import load_config
+from TTS.tts.tests import get_tests_path, get_tests_input_path, get_tests_output_path
+from TTS.tts.utils.audio import AudioProcessor
+from TTS.tts.utils.io import load_config
 
 TESTS_PATH = get_tests_path()
 

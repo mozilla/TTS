@@ -7,16 +7,16 @@ import torch
 import yaml
 import pysbd
 
-from TTS.utils.audio import AudioProcessor
-from TTS.utils.io import load_config
-from TTS.utils.generic_utils import setup_model
-from TTS.utils.speakers import load_speaker_mapping
+from TTS.tts.utils.audio import AudioProcessor
+from TTS.tts.utils.io import load_config
+from TTS.tts.utils.generic_utils import setup_model
+from TTS.tts.utils.speakers import load_speaker_mapping
 from TTS.vocoder.utils.generic_utils import setup_generator
 # pylint: disable=unused-wildcard-import
 # pylint: disable=wildcard-import
-from TTS.utils.synthesis import *
+from TTS.tts.utils.synthesis import *
 
-from TTS.utils.text import make_symbols, phonemes, symbols
+from TTS.tts.utils.text import make_symbols, phonemes, symbols
 
 
 class Synthesizer(object):

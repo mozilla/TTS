@@ -169,11 +169,11 @@ def synthesis(model,
     """Synthesize voice for the given text.
 
         Args:
-            model (TTS.models): model to synthesize.
+            model (TTS.tts.models): model to synthesize.
             text (str): target text
             CONFIG (dict): config dictionary to be loaded from config.json.
             use_cuda (bool): enable cuda.
-            ap (TTS.utils.audio.AudioProcessor): audio processor to process
+            ap (TTS.tts.utils.audio.AudioProcessor): audio processor to process
                 model outputs.
             speaker_id (int): id of speaker
             style_wav (str): Uses for style embedding of GST.
