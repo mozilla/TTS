@@ -7,8 +7,8 @@ import torch
 import yaml
 import pysbd
 
-from TTS.tts.utils.audio import AudioProcessor
-from TTS.tts.utils.io import load_config
+from TTS.utils.audio import AudioProcessor
+from TTS.utils.io import load_config
 from TTS.tts.utils.generic_utils import setup_model
 from TTS.tts.utils.speakers import load_speaker_mapping
 from TTS.vocoder.utils.generic_utils import setup_generator
