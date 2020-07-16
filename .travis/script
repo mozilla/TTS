@@ -15,8 +15,14 @@ if [[ "$TEST_SUITE" == "unittest" ]]; then
   nosetests TTS.speaker_encoder.tests --nocapture
   nosetests TTS.vocoder.tests --nocapture
   nosetests TTS.tts.tests --nocapture
-  nosetests TTS.tf.tests --nocapture
+  nosetests TTS.tts.tf.tests --nocapture
   popd
+fi
+
+if [[ "$TEST_SUITE" == "testscripts" ]]; then
   # Test server package
-  ./tests/test_server_package.sh
+  ./tts/tests/test_server_package.sh
+  # test model training scripts
+  ./tts/tests/test_tts_train.sh
+  ./vocoder/tests/test_vocoder_train.sh
 fi
