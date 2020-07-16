@@ -7,7 +7,7 @@ from TTS.speaker_encoder.loss import GE2ELoss
 from TTS.utils.io import load_config
 
 
-file_path = os.path.dirname(os.path.realpath(__file__)) + "/../tests/"
+file_path = os.path.dirname(os.path.realpath(__file__)) + "/../../tts/tests/"
 c = load_config(os.path.join(file_path, "test_config.json"))
 
 

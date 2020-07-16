@@ -4,17 +4,17 @@ from torch.utils.data import DataLoader
 
 from TTS.vocoder.datasets.gan_dataset import GANDataset
 from TTS.vocoder.datasets.preprocess import load_wav_data
-from TTS.tts.utils.audio import AudioProcessor
-from TTS.tts.utils.io import load_config
+from TTS.utils.audio import AudioProcessor
+from TTS.utils.io import load_config
 
 
 file_path = os.path.dirname(os.path.realpath(__file__))
-OUTPATH = os.path.join(file_path, "../../tests/outputs/loader_tests/")
+OUTPATH = os.path.join(file_path, "../../tts/tests/outputs/loader_tests/")
 os.makedirs(OUTPATH, exist_ok=True)
 
 C = load_config(os.path.join(file_path, 'test_config.json'))
 
-test_data_path = os.path.join(file_path, "../../tests/data/ljspeech/")
+test_data_path = os.path.join(file_path, "../../tts/tests/data/ljspeech/")
 ok_ljspeech = os.path.exists(test_data_path)
 
 
