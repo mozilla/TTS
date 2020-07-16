@@ -112,6 +112,8 @@ setup(
     name='TTS',
     version=version,
     url='https://github.com/mozilla/TTS',
+    author='Eren Gölge',
+    author_email='egolge@mozilla.com',
     description='Text to Speech with Deep Learning',
     license='MPL-2.0',
     entry_points={
@@ -119,11 +121,7 @@ setup(
             'tts-server = TTS.server.server:main'
         ]
     },
-    package_dir={'': 'tts_namespace'},
-    packages=find_packages('tts_namespace'),
-    package_data={
-        'TTS': package_data,
-    },
+    packages=find_packages(include=['TTS*']),
     project_urls={
         'Documentation': 'https://github.com/mozilla/TTS/wiki',
         'Tracker': 'https://github.com/mozilla/TTS/issues',
