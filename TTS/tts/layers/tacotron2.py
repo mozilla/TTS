@@ -246,13 +246,11 @@ class Decoder(nn.Module):
         decoder_output = decoder_output[:, :self.r * self.frame_dim]
         return decoder_output, self.attention.attention_weights, stop_token
 
-    def forward(self, inputs, memories, mask, speaker_embeddings=None):
+    def forward(self, inputs, memories, mask):
         memory = self.get_go_frame(inputs).unsqueeze(0)
         memories = self._reshape_memory(memories)
         memories = torch.cat((memory, memories), dim=0)
         memories = self._update_memory(memories)
-        if speaker_embeddings is not None:
-            memories = torch.cat([memories, speaker_embeddings], dim=-1)
         memories = self.prenet(memories)
 
         self._init_states(inputs, mask=mask)

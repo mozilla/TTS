@@ -245,13 +245,18 @@ def check_config(c):
 
     # multi-speaker gst
     check_argument('use_speaker_embedding', c, restricted=True, val_type=bool)
-    check_argument('style_wav_for_test', c, restricted=True, val_type=str)
     check_argument('use_gst', c, restricted=True, val_type=bool)
+
+    check_argument('gst', c, restricted=True, val_type=dict)
+    check_argument('gst_style_input', c['gst'], restricted=True, val_type=[str, dict])
+    check_argument('gst_embedding_dim', c['gst'], restricted=True, val_type=int, min_val=0, max_val=1000)
+    check_argument('gst_num_heads', c['gst'], restricted=True, val_type=int, min_val=2, max_val=10)
+    check_argument('gst_style_tokens', c['gst'], restricted=True, val_type=int, min_val=1, max_val=1000)
 
     # datasets - checking only the first entry
     check_argument('datasets', c, restricted=True, val_type=list)
     for dataset_entry in c['datasets']:
         check_argument('name', dataset_entry, restricted=True, val_type=str)
         check_argument('path', dataset_entry, restricted=True, val_type=str)
-        check_argument('meta_file_train', dataset_entry, restricted=True, val_type=str)
+        check_argument('meta_file_train', dataset_entry, restricted=True, val_type=[str, list])
         check_argument('meta_file_val', dataset_entry, restricted=True, val_type=str)
