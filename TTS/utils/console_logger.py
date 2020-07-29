@@ -15,8 +15,8 @@ tcolors = AttrDict({
 
 
 class ConsoleLogger():
-    # TODO: merge this with TTS ConsoleLogger
     def __init__(self):
+        # TODO: color code for value changes
         # use these to compare values between iterations
         self.old_train_loss_dict = None
         self.old_epoch_loss_dict = None
@@ -35,8 +35,7 @@ class ConsoleLogger():
     def print_train_start(self):
         print(f"\n{tcolors.BOLD} > TRAINING ({self.get_time()}) {tcolors.ENDC}")
 
-    def print_train_step(self, batch_steps, step, global_step,
-                         step_time, loader_time, lrG, lrD,
+    def print_train_step(self, batch_steps, step, global_step, log_dict,
                          loss_dict, avg_loss_dict):
         indent = "     | > "
         print()
@@ -48,7 +47,13 @@ class ConsoleLogger():
                 log_text += "{}{}: {:.5f}  ({:.5f})\n".format(indent, key, value, avg_loss_dict[f'avg_{key}'])
             else:
                 log_text += "{}{}: {:.5f} \n".format(indent, key, value)
-        log_text += f"{indent}step_time: {step_time:.2f}\n{indent}loader_time: {loader_time:.2f}\n{indent}lrG: {lrG}\n{indent}lrD: {lrD}"
+        for idx, (key, value) in enumerate(log_dict.items()):
+            if isinstance(value, list):
+                log_text += f"{indent}{key}: {value[0]:.{value[1]}f}"
+            else:
+                log_text += f"{indent}{key}: {value}"
+            if idx < len(log_dict)-1:
+                log_text += "\n"
         print(log_text, flush=True)
 
     # pylint: disable=unused-argument

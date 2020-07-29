@@ -11,11 +11,9 @@ import traceback
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-
 from TTS.tts.datasets.preprocess import load_meta_data
 from TTS.tts.datasets.TTSDataset import MyDataset
 from TTS.tts.layers.losses import TacotronLoss
-from TTS.tts.utils.console_logger import ConsoleLogger
 from TTS.tts.utils.distribute import (DistributedSampler,
                                       apply_gradient_allreduce,
                                       init_distributed, reduce_tensor)
@@ -28,6 +26,7 @@ from TTS.tts.utils.synthesis import synthesis
 from TTS.tts.utils.text.symbols import make_symbols, phonemes, symbols
 from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
 from TTS.utils.audio import AudioProcessor
+from TTS.utils.console_logger import ConsoleLogger
 from TTS.utils.generic_utils import (KeepAverage, count_parameters,
                                      create_experiment_folder, get_git_branch,
                                      remove_experiment_folder, set_init_dict)
@@ -228,10 +227,15 @@ def train(model, criterion, optimizer, optimizer_st, scheduler,
 
         # print training progress
         if global_step % c.print_step == 0:
+            log_dict = {
+                "avg_spec_length": [avg_spec_length, 1],  # value, precision
+                "avg_text_length": [avg_text_length, 1],
+                "step_time": [step_time, 4],
+                "loader_time": [loader_time, 2],
+                "current_lr": current_lr,
+            }
             c_logger.print_train_step(batch_n_iter, num_iter, global_step,
-                                      avg_spec_length, avg_text_length,
-                                      step_time, loader_time, current_lr,
-                                      loss_dict, keep_avg.avg_values)
+                                      log_dict, loss_dict, keep_avg.avg_values)
 
         if args.rank == 0:
             # Plot Training Iter Stats
