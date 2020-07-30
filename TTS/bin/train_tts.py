@@ -488,7 +488,7 @@ def main(args):  # pylint: disable=redefined-outer-name
                     print("WARNING: speakers.json was not found in restore_path, trying to use CONFIG.external_speaker_embedding_file")
                     speaker_mapping = load_speaker_mapping(c.external_speaker_embedding_file)
                     if not speaker_mapping:
-                        raise RuntimeError("You must copy the file speakers.json to restore_path, or set a valid file in CONFIG.external_speaker_embedding_file") 
+                        raise RuntimeError("You must copy the file speakers.json to restore_path, or set a valid file in CONFIG.external_speaker_embedding_file")
                 speaker_embedding_dim = len(speaker_mapping[list(speaker_mapping.keys())[0]]['embedding'])
             elif not c.use_external_speaker_embedding_file: # if restore checkpoint and don't use External Embedding file
                 prev_out_path = os.path.dirname(args.restore_path)
@@ -503,7 +503,7 @@ def main(args):  # pylint: disable=redefined-outer-name
             print(speaker_mapping)
             speaker_embedding_dim = len(speaker_mapping[list(speaker_mapping.keys())[0]]['embedding'])
         elif c.use_external_speaker_embedding_file and not c.external_speaker_embedding_file: # if start new train using External Embedding file and don't pass external embedding file
-            raise "use_external_speaker_embedding_file is True, so you need pass a external speaker embedding file, run GE2E-Speaker_Encoder-ExtractSpeakerEmbeddings-by-sample.ipynb or AngularPrototypical-Speaker_Encoder-ExtractSpeakerEmbeddings-by-sample.ipynb notebook in notebooks/ folder" 
+            raise "use_external_speaker_embedding_file is True, so you need pass a external speaker embedding file, run GE2E-Speaker_Encoder-ExtractSpeakerEmbeddings-by-sample.ipynb or AngularPrototypical-Speaker_Encoder-ExtractSpeakerEmbeddings-by-sample.ipynb notebook in notebooks/ folder"
         else: # if start new train and don't use External Embedding file
             speaker_mapping = {name: i for i, name in enumerate(speakers)}
             speaker_embedding_dim = None
