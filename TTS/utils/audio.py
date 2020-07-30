@@ -2,6 +2,7 @@ import librosa
 import soundfile as sf
 import numpy as np
 import scipy.io
+import scipy.io.wavfile
 import scipy.signal
 
 from TTS.tts.utils.data import StandardScaler
@@ -52,7 +53,7 @@ class AudioProcessor(object):
         self.mel_fmin = mel_fmin or 0
         self.mel_fmax = mel_fmax
         self.spec_gain = float(spec_gain)
-        self.stft_pad_mode = 'reflect'
+        self.stft_pad_mode = stft_pad_mode
         self.max_norm = 1.0 if max_norm is None else float(max_norm)
         self.clip_norm = clip_norm
         self.do_trim_silence = do_trim_silence
