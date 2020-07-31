@@ -16,10 +16,9 @@ from TTS.speaker_encoder.model import SpeakerEncoder
 from TTS.speaker_encoder.visual import plot_embeddings
 from TTS.tts.datasets.preprocess import load_meta_data
 from TTS.utils.audio import AudioProcessor
-from TTS.utils.generic_utils import (create_experiment_folder,
-                                         get_git_branch,
-                                         remove_experiment_folder,
-                                         set_init_dict)
+from TTS.utils.generic_utils import (KeepAverage, count_parameters,
+                                     create_experiment_folder, get_git_branch,
+                                     remove_experiment_folder, set_init_dict)
 from TTS.utils.io import copy_config_file, load_config
 from TTS.utils.radam import RAdam
 from TTS.utils.tensorboard_logger import TensorboardLogger
@@ -247,7 +246,7 @@ if __name__ == '__main__':
                      new_fields)
 
     LOG_DIR = OUT_PATH
-    tb_logger = TensorboardLogger(LOG_DIR)
+    tb_logger = TensorboardLogger(LOG_DIR, model_name='Speaker_Encoder')
 
     try:
         main(args)
