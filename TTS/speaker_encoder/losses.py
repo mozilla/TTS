@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+import numpy as np
 
 # adapted from https://github.com/cvqluu/GE2E-Loss
 class GE2ELoss(nn.Module):
@@ -141,7 +141,6 @@ class AngleProtoLoss(nn.Module):
         # pylint: disable=E1102
         self.b = nn.Parameter(torch.tensor(init_b))
         self.criterion = torch.nn.CrossEntropyLoss()
-        self.use_cuda = torch.cuda.is_available()
 
         print('Initialised Angular Prototypical loss')
 
@@ -156,8 +155,6 @@ class AngleProtoLoss(nn.Module):
         cos_sim_matrix  = F.cosine_similarity(out_positive.unsqueeze(-1).expand(-1,-1,num_speakers),out_anchor.unsqueeze(-1).expand(-1,-1,num_speakers).transpose(0,2))
         torch.clamp(self.w, 1e-6)
         cos_sim_matrix = cos_sim_matrix * self.w + self.b
-        label = torch.from_numpy(np.asarray(range(0,num_speakers)))
-        if self.use_cuda:
-            label = label.cuda()
+        label = torch.from_numpy(np.asarray(range(0,num_speakers))).to(cos_sim_matrix.device)
         L = self.criterion(cos_sim_matrix, label)
         return L
