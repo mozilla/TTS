@@ -127,7 +127,8 @@ def format_data(data, speaker_mapping=None):
 
 
 def train(model, criterion, optimizer, optimizer_st, scheduler,
-          ap, global_step, epoch, speaker_mapping=None):
+          ap, global_step, epoch, amp, speaker_mapping=None):
+  
     data_loader = setup_loader(ap, model.decoder.r, is_val=False,
                                verbose=(epoch == 0), speaker_mapping=speaker_mapping)
     model.train()
@@ -180,9 +181,18 @@ def train(model, criterion, optimizer, optimizer_st, scheduler,
                               text_lengths)
 
         # backward pass
-        loss_dict['loss'].backward()
+        if amp is not None:
+            with amp.scale_loss( loss_dict['loss'], optimizer) as scaled_loss:
+                scaled_loss.backward()
+        else:
+            loss_dict['loss'].backward()
+
         optimizer, current_lr = adam_weight_decay(optimizer)
-        grad_norm, _ = check_update(model, c.grad_clip, ignore_stopnet=True)
+        if amp:
+            amp_opt_params = amp.master_params(optimizer)
+        else:
+            amp_opt_params = None
+        grad_norm, _ = check_update(model, c.grad_clip, ignore_stopnet=True, amp_opt_params=amp_opt_params)
         optimizer.step()
 
         # compute alignment error (the lower the better )
@@ -193,7 +203,11 @@ def train(model, criterion, optimizer, optimizer_st, scheduler,
         if c.separate_stopnet:
             loss_dict['stopnet_loss'].backward()
             optimizer_st, _ = adam_weight_decay(optimizer_st)
-            grad_norm_st, _ = check_update(model.decoder.stopnet, 1.0)
+            if amp:
+                amp_opt_params = amp.master_params(optimizer)
+            else:
+                amp_opt_params = None
+            grad_norm_st, _ = check_update(model.decoder.stopnet, 1.0, amp_opt_params=amp_opt_params)
             optimizer_st.step()
         else:
             grad_norm_st = 0
@@ -255,7 +269,8 @@ def train(model, criterion, optimizer, optimizer_st, scheduler,
                     # save model
                     save_checkpoint(model, optimizer, global_step, epoch, model.decoder.r, OUT_PATH,
                                     optimizer_st=optimizer_st,
-                                    model_loss=loss_dict['postnet_loss'])
+                                    model_loss=loss_dict['postnet_loss'],
+                                    amp_state_dict=amp.state_dict() if amp else None)
 
                 # Diagnostic visualizations
                 const_spec = postnet_output[0].data.cpu().numpy()
@@ -265,13 +280,13 @@ def train(model, criterion, optimizer, optimizer_st, scheduler,
                 align_img = alignments[0].data.cpu().numpy()
 
                 figures = {
-                    "prediction": plot_spectrogram(const_spec, ap),
-                    "ground_truth": plot_spectrogram(gt_spec, ap),
-                    "alignment": plot_alignment(align_img),
+                    "prediction": plot_spectrogram(const_spec, ap, output_fig=False),
+                    "ground_truth": plot_spectrogram(gt_spec, ap, output_fig=False),
+                    "alignment": plot_alignment(align_img, output_fig=False),
                 }
 
                 if c.bidirectional_decoder or c.double_decoder_consistency:
-                    figures["alignment_backward"] = plot_alignment(alignments_backward[0].data.cpu().numpy())
+                    figures["alignment_backward"] = plot_alignment(alignments_backward[0].data.cpu().numpy(), output_fig=False)
 
                 tb_logger.tb_train_figures(global_step, figures)
 
@@ -379,9 +394,9 @@ def evaluate(model, criterion, ap, global_step, epoch, speaker_mapping=None):
             align_img = alignments[idx].data.cpu().numpy()
 
             eval_figures = {
-                "prediction": plot_spectrogram(const_spec, ap),
-                "ground_truth": plot_spectrogram(gt_spec, ap),
-                "alignment": plot_alignment(align_img)
+                "prediction": plot_spectrogram(const_spec, ap, output_fig=False),
+                "ground_truth": plot_spectrogram(gt_spec, ap, output_fig=False),
+                "alignment": plot_alignment(align_img, output_fig=False)
             }
 
             # Sample audio
@@ -396,7 +411,7 @@ def evaluate(model, criterion, ap, global_step, epoch, speaker_mapping=None):
 
             if c.bidirectional_decoder or c.double_decoder_consistency:
                 align_b_img = alignments_backward[idx].data.cpu().numpy()
-                eval_figures['alignment2'] = plot_alignment(align_b_img)
+                eval_figures['alignment2'] = plot_alignment(align_b_img, output_fig=False)
             tb_logger.tb_eval_stats(global_step, keep_avg.avg_values)
             tb_logger.tb_eval_figures(global_step, eval_figures)
 
@@ -441,9 +456,9 @@ def evaluate(model, criterion, ap, global_step, epoch, speaker_mapping=None):
                 ap.save_wav(wav, file_path)
                 test_audios['{}-audio'.format(idx)] = wav
                 test_figures['{}-prediction'.format(idx)] = plot_spectrogram(
-                    postnet_output, ap)
+                    postnet_output, ap, output_fig=False)
                 test_figures['{}-alignment'.format(idx)] = plot_alignment(
-                    alignment)
+                    alignment, output_fig=False)
             except:
                 print(" !! Error creating Test Sentence -", idx)
                 traceback.print_exc()
@@ -525,6 +540,14 @@ def main(args):  # pylint: disable=redefined-outer-name
     else:
         optimizer_st = None
 
+    if c.apex_amp_level == "O1":
+        # pylint: disable=import-outside-toplevel
+        from apex import amp
+        model.cuda()
+        model, optimizer = amp.initialize(model, optimizer, opt_level=c.apex_amp_level)
+    else:
+        amp = None
+
     # setup criterion
     criterion = TacotronLoss(c, stopnet_pos_weight=10.0, ga_sigma=0.4)
 
@@ -545,6 +568,10 @@ def main(args):  # pylint: disable=redefined-outer-name
             # print("State Dict saved for debug in: ", os.path.join(OUT_PATH, 'state_dict.pt'))
             model.load_state_dict(model_dict)
             del model_dict
+
+        if amp and 'amp' in checkpoint:
+            amp.load_state_dict(checkpoint['amp'])
+
         for group in optimizer.param_groups:
             group['lr'] = c.lr
         print(" > Model restored from step %d" % checkpoint['step'],
@@ -587,14 +614,15 @@ def main(args):  # pylint: disable=redefined-outer-name
             print("\n > Number of output frames:", model.decoder.r)
         train_avg_loss_dict, global_step = train(model, criterion, optimizer,
                                                  optimizer_st, scheduler, ap,
-                                                 global_step, epoch, speaker_mapping)
+                                                 global_step, epoch, amp, 
+                                                 speaker_mapping)
         eval_avg_loss_dict = evaluate(model, criterion, ap, global_step, epoch, speaker_mapping)
         c_logger.print_epoch_end(epoch, eval_avg_loss_dict)
         target_loss = train_avg_loss_dict['avg_postnet_loss']
         if c.run_eval:
             target_loss = eval_avg_loss_dict['avg_postnet_loss']
         best_loss = save_best_model(target_loss, best_loss, model, optimizer, global_step, epoch, c.r,
-                                    OUT_PATH)
+                                    OUT_PATH, amp_state_dict=amp.state_dict() if amp else None)
 
 
 if __name__ == '__main__':
@@ -645,6 +673,9 @@ if __name__ == '__main__':
     c = load_config(args.config_path)
     check_config(c)
     _ = os.path.dirname(os.path.realpath(__file__))
+
+    if c.apex_amp_level == 'O1':
+        print("   >  apex AMP level: ", c.apex_amp_level)
 
     OUT_PATH = args.continue_path
     if args.continue_path == '':

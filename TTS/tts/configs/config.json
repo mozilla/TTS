@@ -67,6 +67,7 @@
     "gradual_training": [[0, 7, 64], [1, 5, 64], [50000, 3, 32], [130000, 2, 32], [290000, 1, 32]], //set gradual training steps [first_step, r, batch_size]. If it is null, gradual training is disabled. For Tacotron, you might need to reduce the 'batch_size' as you proceeed.
     "loss_masking": true,         // enable / disable loss masking against the sequence padding.
     "ga_alpha": 10.0,        // weight for guided attention loss. If > 0, guided attention is enabled.
+    "apex_amp_level": null, // level of optimization with NVIDIA's apex feature for automatic mixed FP16/FP32 precision (AMP), NOTE: currently only O1 is supported, and use "O1" to activate.
 
     // VALIDATION
     "run_eval": true,
@@ -84,8 +85,8 @@
 
     // TACOTRON PRENET
     "memory_size": -1,             // ONLY TACOTRON - size of the memory queue used fro storing last decoder predictions for auto-regression. If < 0, memory queue is disabled and decoder only uses the last prediction frame.
-    "prenet_type": "bn",     // "original" or "bn".
-    "prenet_dropout": false,        // enable/disable dropout at prenet.
+    "prenet_type": "bn",           // "original" or "bn".
+    "prenet_dropout": false,       // enable/disable dropout at prenet.
 
     // TACOTRON ATTENTION
     "attention_type": "original",  // 'original' or 'graves'
