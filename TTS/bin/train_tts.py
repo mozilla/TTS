@@ -614,7 +614,7 @@ def main(args):  # pylint: disable=redefined-outer-name
             print("\n > Number of output frames:", model.decoder.r)
         train_avg_loss_dict, global_step = train(model, criterion, optimizer,
                                                  optimizer_st, scheduler, ap,
-                                                 global_step, epoch, amp, 
+                                                 global_step, epoch, amp,
                                                  speaker_mapping)
         eval_avg_loss_dict = evaluate(model, criterion, ap, global_step, epoch, speaker_mapping)
         c_logger.print_epoch_end(epoch, eval_avg_loss_dict)
