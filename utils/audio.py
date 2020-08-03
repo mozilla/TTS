@@ -1,7 +1,7 @@
 import librosa
 import soundfile as sf
 import numpy as np
-import scipy.io.wavfile as wavfile
+import scipy.io.wavfile
 import scipy.signal
 
 from TTS.utils.data import StandardScaler
@@ -319,7 +319,7 @@ class AudioProcessor(object):
 
     def save_wav(self, wav, path):
         wav_norm = wav * (32767 / max(0.01, np.max(np.abs(wav))))
-        wavfile.write(path, self.sample_rate, wav_norm.astype(np.int16))
+        scipy.io.wavfile.write(path, self.sample_rate, wav_norm.astype(np.int16))
 
     @staticmethod
     def mulaw_encode(wav, qc):
