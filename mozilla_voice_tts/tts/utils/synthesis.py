@@ -36,14 +36,12 @@ def numpy_to_tf(np_array, dtype):
     tensor = tf.convert_to_tensor(np_array, dtype=dtype)
     return tensor
 
-
 def compute_style_mel(style_wav, ap, cuda=False):
     style_mel = torch.FloatTensor(ap.melspectrogram(
-        ap.load_wav(style_wav, sr=ap.sample_rate))).unsqueeze(0)
+        np.asarray(ap.load_wav(style_wav, sr=ap.sample_rate), dtype=np.float32)).astype('float32')).unsqueeze(0)
     if cuda:
         return style_mel.cuda()
     return style_mel
-
 
 def run_model_torch(model, inputs, CONFIG, truncated, speaker_id=None, style_mel=None, speaker_embeddings=None):
     if CONFIG.use_gst:
