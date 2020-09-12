@@ -11,8 +11,11 @@ source /tmp/venv/bin/activate
 pip install --quiet --upgrade pip setuptools wheel
 
 rm -f dist/*.whl
-python setup.py bdist_wheel --checkpoint tests/outputs/checkpoint_10.pth.tar --model_config tests/outputs/dummy_model_config.json
+python setup.py --quiet bdist_wheel --checkpoint tests/outputs/checkpoint_10.pth.tar --model_config tests/outputs/dummy_model_config.json
 pip install --quiet dist/TTS*.whl
+
+# this is related to https://github.com/librosa/librosa/issues/1160
+pip install numba==0.48
 
 python -m TTS.server.server &
 SERVER_PID=$!
