@@ -40,7 +40,7 @@ class Synthesizer(object):
             self.load_wavernn(self.config.wavernn_lib_path, self.config.wavernn_checkpoint,
                               self.config.wavernn_config, self.config.use_cuda)
 
-        if self.config.use_cache:
+        if 'use_cache' in self.config.keys() and self.config.use_cache:
             self.cache = os.listdir(self.config.cache_path)
             print("cache enabled, folder {} contains {} files".format(self.config.cache_path, len(self.cache)))
 
@@ -156,7 +156,7 @@ class Synthesizer(object):
         start_time = time.time()
         wavs = []
         sens = self.split_into_sentences(text)
-        print(sens)
+        # print(sens)
         speaker_id = id_to_torch(speaker_id)
         if speaker_id is not None and self.use_cuda:
             speaker_id = speaker_id.cuda()
