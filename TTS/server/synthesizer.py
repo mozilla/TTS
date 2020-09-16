@@ -39,8 +39,9 @@ class Synthesizer(object):
         if self.config.wavernn_lib_path:
             self.load_wavernn(self.config.wavernn_lib_path, self.config.wavernn_checkpoint,
                               self.config.wavernn_config, self.config.use_cuda)
-
-        if 'use_cache' in self.config.keys() and self.config.use_cache:
+        if 'use_cache' not in self.config.keys():
+            self.config.use_cache = False
+        if self.config.use_cache:
             self.cache = os.listdir(self.config.cache_path)
             print("cache enabled, folder {} contains {} files".format(self.config.cache_path, len(self.cache)))
 
