@@ -27,7 +27,9 @@ class Synthesizer(object):
         self.wavernn = None
         self.vocoder_model = None
         self.config = config
-        print(config)
+        print(self.config.keys())
+        if 'lang' not in self.config.keys():
+            self.config.lang = 'en'
         self.seg = self.get_segmenter(self.config.lang)
         self.use_cuda = self.config.use_cuda
         if self.use_cuda:
@@ -38,7 +40,7 @@ class Synthesizer(object):
         if self.config.wavernn_lib_path:
             self.load_wavernn(self.config.wavernn_lib_path, self.config.wavernn_checkpoint,
                               self.config.wavernn_config, self.config.use_cuda)
-        
+
         if self.config.use_cache:
             self.cache = os.listdir(self.config.cache_path)
             print("cache enabled, folder {} contains {} files".format(self.config.cache_path, len(self.cache)))
@@ -70,11 +72,11 @@ class Synthesizer(object):
 
         # TODO: fix this for multi-speaker model - load speakers
         if self.config.tts_speakers is not None:
-           self.tts_speakers = load_speaker_mapping(self.config.tts_speakers)
-           num_speakers = len(self.tts_speakers)
+            self.tts_speakers = load_speaker_mapping(self.config.tts_speakers)
+            num_speakers = len(self.tts_speakers)
         else:
-           num_speakers = 0
-        
+            num_speakers = 0
+
         # load speakers
         self.speaker_embedding = None
         self.speaker_embedding_dim = None
@@ -175,7 +177,7 @@ class Synthesizer(object):
                 inputs = text_to_seqvec(sen, self.tts_config)
                 inputs = numpy_to_torch(inputs, torch.long, cuda=self.use_cuda)
                 inputs = inputs.unsqueeze(0)
-                
+
                 # synthesize voice
                 print("synthesize", sen)
                 _, postnet_output, _, _ = run_model_torch(self.tts_model, inputs, self.tts_config, False, speaker_id, None)
