@@ -27,7 +27,6 @@ class Synthesizer(object):
         self.wavernn = None
         self.vocoder_model = None
         self.config = config
-        print(self.config.keys())
         if 'lang' not in self.config.keys():
             self.config.lang = 'en'
         self.seg = self.get_segmenter(self.config.lang)
