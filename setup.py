@@ -60,7 +60,7 @@ def find_pyx(path='.'):
     return pyx_files
 
 
-def find_cython_extensions(path="."):
+def find_cython_extensions(path="./TTS/tts/layers/glow_tts/"):
     exts = cythonize(find_pyx(path), language_level=3)
     for ext in exts:
         ext.include_dirs = [numpy.get_include()]
