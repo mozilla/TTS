@@ -7,6 +7,8 @@ from tests import get_tests_input_path
 from TTS.tts.utils.text import *
 from tests import get_tests_path
 from TTS.utils.io import load_config
+from typing import Any
+from TTS.tts.utils.text.cleaners import phoneme_cleaners
 
 conf = load_config(os.path.join(get_tests_input_path(), 'test_config.json'))
 
@@ -88,6 +90,7 @@ def test_phoneme_to_sequence():
     print(len(sequence))
     assert text_hat == text_hat_with_params == gt
 
+
 def test_phoneme_to_sequence_with_blank_token():
 
     text = "Recent research at Harvard has shown meditating for as little as 8 weeks can actually increase, the grey matter in the parts of the brain responsible for emotional regulation and learning!"
@@ -165,6 +168,16 @@ def test_phoneme_to_sequence_with_blank_token():
     print(text_hat)
     print(len(sequence))
     assert text_hat == text_hat_with_params == gt
+
+
+def assert_equal(actual: Any, expected: Any) -> None:
+    assert actual == expected, f"\n{actual} \n vs \n{expected}"
+
+
+def test_expand_numbers():
+    assert_equal("minus one", phoneme_cleaners("-1"))
+    assert_equal("one", phoneme_cleaners("1"))
+
 
 def test_text2phone():
     text = "Recent research at Harvard has shown meditating for as little as 8 weeks can actually increase, the grey matter in the parts of the brain responsible for emotional regulation and learning!"
