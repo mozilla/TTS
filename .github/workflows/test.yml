@@ -1,0 +1,31 @@
+name: "Test"
+on:
+  pull_request:
+  push:
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+    - run: python -m pip install --upgrade pip
+    - run: pip install --quiet --upgrade cardboardlint pylint
+    - run: TEST_SUITE=lint ./.github/workflows/script
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7, 3.8]
+        test-suite: [testscripts, unittest]
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - run: sudo apt-get -y install espeak
+    - run: python -m pip install --upgrade pip
+    - run: pip install -e .
+    - run: python setup.py egg_info
+    - run: TEST_SUITE=${{ matrix.test-suite }} ./.github/workflows/script

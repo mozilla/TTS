@@ -1,12 +1,9 @@
 #!/bin/bash
 set -ex
 
-git remote set-branches --add origin $TRAVIS_BRANCH
-git fetch
-
-if [[ ( "$TRAVIS_PULL_REQUEST" != "false" ) && ( "$TEST_SUITE" == "lint" ) ]]; then
+if [[ -n "$GITHUB_BASE_REF" ]] && [[ "$TEST_SUITE" == "lint" ]]; then
   # Run cardboardlinter, in case of pull requests
-  cardboardlinter --refspec origin/$TRAVIS_BRANCH -n auto
+  cardboardlinter --refspec $GITHUB_BASE_REF -n auto
 fi
 
 if [[ "$TEST_SUITE" == "unittest" ]]; then
