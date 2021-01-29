@@ -26,7 +26,7 @@ def read_json_with_comments(json_path):
         input_str = f.read()
     # handle comments
     input_str = re.sub(r'\\\n', '', input_str)
-    input_str = re.sub(r'//.*\n', '\n', input_str)
+    input_str = re.sub(r'^\s+//.*\n', '\n', input_str)
     data = json.loads(input_str)
     return data
 
