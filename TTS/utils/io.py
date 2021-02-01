@@ -20,16 +20,6 @@ class AttrDict(dict):
         self.__dict__ = self
 
 
-def read_json_with_comments(json_path):
-    # fallback to json
-    with open(json_path, "r") as f:
-        input_str = f.read()
-    # handle comments
-    input_str = re.sub(r'\\\n', '', input_str)
-    input_str = re.sub(r'//.*\n', '\n', input_str)
-    data = json.loads(input_str)
-    return data
-
 def load_config(config_path: str) -> AttrDict:
     """Load config files and discard comments
 
@@ -43,7 +33,15 @@ def load_config(config_path: str) -> AttrDict:
         with open(config_path, "r") as f:
             data = yaml.safe_load(f)
     else:
-        data = read_json_with_comments(config_path)
+        # fallback to json
+        with open(config_path, "r") as f:
+            input_str = f.read()
+        # handle comments
+        input_str = re.sub(r'\\\n', '', input_str)
+        input_str = re.sub(r'//.*\n', '\n', input_str)
+        input_str = input_str.replace('\\','/')
+        data = json.loads(input_str)
+
     config.update(data)
     return config
 
