@@ -5,6 +5,7 @@ from packaging import version
 import phonemizer
 from phonemizer.phonemize import phonemize
 from TTS.tts.utils.text import cleaners
+from TTS.tts.utils.chinese_mandarin.phonemizer import chinese_text_to_phonemes
 from TTS.tts.utils.text.symbols import make_symbols, symbols, phonemes, _phoneme_punctuations, _bos, \
     _eos
 
@@ -25,10 +26,27 @@ _CURLY_RE = re.compile(r'(.*?)\{(.+?)\}(.*)')
 PHONEME_PUNCTUATION_PATTERN = r'['+_phoneme_punctuations+']+'
 
 
+
+
 def text2phone(text, language):
     '''
-    Convert graphemes to phonemes.
+    Convert graphemes to phonemes. For most of the languages, it calls
+    the phonemizer python library that calls espeak/espeak-ng. For chinese
+    mandarin, it calls pypinyin + custom function for phonemizing
+
+            Parameters:
+                    text (str): text to phonemize
+                    language (str): language of the text
+
+            Returns:
+                    ph (str): phonemes as a string seperated by "|"
+                            ph = "ɪ|g|ˈ|z|æ|m|p|ə|l"
     '''
+
+    if language == "chinese-mandarin":
+        ph = chinese_text_to_phonemes(text)
+        return ph
+
     seperator = phonemizer.separator.Separator(' |', '', '|')
     #try:
     punctuations = re.findall(PHONEME_PUNCTUATION_PATTERN, text)
@@ -56,7 +74,8 @@ def text2phone(text, language):
             ph = ph[:-3]
     else:
         raise RuntimeError(" [!] Use 'phonemizer' version 2.1 or older.")
-
+    
+    # print("KK ph", ph)
     return ph
 
 def intersperse(sequence, token):
@@ -83,6 +102,8 @@ def phoneme_to_sequence(text, cleaner_names, language, enable_eos_bos=False, tp=
         _phonemes_to_id = {s: i for i, s in enumerate(_phonemes)}
 
     sequence = []
+    # print("KK text before clean : ", text)
+    # print("KK cleaner_names", cleaner_names)
     clean_text = _clean_text(text, cleaner_names)
     to_phonemes = text2phone(clean_text, language)
     if to_phonemes is None:
@@ -95,6 +116,9 @@ def phoneme_to_sequence(text, cleaner_names, language, enable_eos_bos=False, tp=
         sequence = pad_with_eos_bos(sequence, tp=tp)
     if add_blank:
         sequence = intersperse(sequence, len(_phonemes)) # add a blank token (new), whose id number is len(_phonemes)
+    # print("\nKK text", text)
+    # print("KK to_phonemes", to_phonemes)
+    # print("KK sequence", sequence)
     return sequence
 
 
