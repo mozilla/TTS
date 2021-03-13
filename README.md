@@ -109,6 +109,17 @@ git clone https://github.com/mozilla/TTS
 pip install -e .
 ```
 
+## The GUI
+![GUI](./images/tts_gui.png)
+```bash
+pip install tkinter
+pip install playsound
+```
+WARNING: DO NOT run this from IDLE or directly in Python such as double-clicking the file, it will be stuck loading. To be safe:
+```bash
+python mozilla-tts-gui.py
+```
+
 ## Directory Structure
 ```
 |- notebooks/       (Jupyter Notebooks for model evaluation, parameter selection and data analysis.)
