@@ -23,5 +23,4 @@ gdown
 umap-learn
 cython
 pyyaml
-tkinter
 playsound

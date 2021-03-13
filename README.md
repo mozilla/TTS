@@ -112,7 +112,6 @@ pip install -e .
 ## The GUI
 ![GUI](./images/tts_gui.png)
 ```bash
-pip install tkinter
 pip install playsound
 ```
 WARNING: DO NOT run this from IDLE or directly in Python such as double-clicking the file, it will be stuck loading. To be safe:
