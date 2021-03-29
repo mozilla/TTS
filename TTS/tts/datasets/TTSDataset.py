@@ -160,7 +160,7 @@ class MyDataset(Dataset):
             # return a different sample if the phonemized
             # text is longer than the threshold
             # TODO: find a better fix
-            return self.load_data(100)
+            return self.load_data(len(self.items))
 
         sample = {
             'text': text,
