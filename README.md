@@ -227,7 +227,7 @@ For multi-GPU training, call ```distribute.py```. It runs any provided train scr
 CUDA_VISIBLE_DEVICES="0,1,4" python TTS/bin/distribute.py --script train_tacotron.py --config_path TTS/tts/configs/config.json
 ```
 
-Each run creates a new output folder accomodating used ```config.json```, model checkpoints and tensorboard logs.
+Each run creates a new output folder accommodating used ```config.json```, model checkpoints and tensorboard logs.
 
 In case of any error or intercepted execution, if there is no checkpoint yet under the output folder, the whole folder is going to be removed.
 
