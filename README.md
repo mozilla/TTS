@@ -162,12 +162,17 @@ Listing released TTS models.
 tts --list_models
 ```
 
+Run with default model and write the output to `hello.wav`
+```bash
+tts --text "Hello, world!" --out_path hello.wav
+```
+
 Run a tts and a vocoder model from the released model list. (Simply copy and paste the full model names from the list as arguments for the command below.)
 ```bash
 tts --text "Text for TTS" \
     --model_name "<type>/<language>/<dataset>/<model_name>" \
     --vocoder_name "<type>/<language>/<dataset>/<model_name>" \
-    --out_path folder/to/save/output/
+    --out_path file/to/save/output.wav
 ```
 
 Run your own TTS model (Using Griffin-Lim Vocoder)
