@@ -153,7 +153,7 @@ def mailabs(root_path, meta_files=None):
 
 
 def ljspeech(root_path, meta_file):
-    """Normalizes the Nancy meta data file to TTS format"""
+    """Normalizes the LJSpeech meta data file to TTS format"""
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "ljspeech"
