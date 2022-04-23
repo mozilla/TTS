@@ -479,4 +479,4 @@ def init_attn(attn_type, query_dim, embedding_dim, attention_dim,
                                                     beta=0.9)
 
     raise RuntimeError(
-        " [!] Given Attention Type '{attn_type}' is not exist.")
+        f" [!] Given Attention Type '{attn_type}' is not exist.")
