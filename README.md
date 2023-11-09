@@ -181,8 +181,8 @@ tts --text "Text for TTS" \
 Run your own TTS and Vocoder models
 ```bash
 tts --text "Text for TTS" \
-    --model_path path/to/config.json \
-    --config_path path/to/model.pth.tar \
+    --model_path path/to/model.pth.tar \
+    --config_path path/to/config.json \
     --out_path output/path/speech.wav \
     --vocoder_path path/to/vocoder.pth.tar \
     --vocoder_config_path path/to/vocoder_config.json
